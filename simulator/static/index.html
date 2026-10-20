@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Verity Household Simulator</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main>
+      <header class="topbar">
+        <div><p class="eyebrow">SIMULATED ALEXA+ EXPERIENCE</p><h1>VERITY HOUSE</h1><p id="sim-clock">SIM TIME 06:00</p></div>
+        <div class="mode-switch" aria-label="Simulator mode">
+          <button class="mode active" data-mode="manual">Manual</button>
+          <button class="mode" data-mode="demo">Demo</button>
+        </div>
+      </header>
+
+      <section class="house-shell" aria-label="Verity household floor plan">
+        <div class="house" id="house">
+          <canvas id="pixel-house" width="512" height="352" aria-label="Animated pixel-art Verity household"></canvas>
+          <div class="device-row device-living" data-room="living_room"></div>
+          <div class="device-row device-kitchen" data-room="kitchen"></div>
+          <div class="device-row device-bedroom" data-room="bedroom"></div>
+          <div class="device-row device-tv" data-room="tv_room"></div>
+          <div id="robot-status" class="robot-status">HOUSEBOT: LOADING</div>
+          <div id="proactive-status" class="proactive-status">CHECKING HOMEâ€¦</div>
+        </div>
+        <aside class="event-panel">
+          <div class="panel-heading"><h2>Live activity</h2><span id="status">Loading state…</span></div>
+          <section class="activity-section conversation-section" aria-labelledby="conversation-heading">
+            <h3 id="conversation-heading">Conversation</h3>
+            <div id="conversation" class="conversation" role="log" aria-live="polite"></div>
+          </section>
+          <section class="activity-section trace-section" aria-labelledby="trace-heading">
+            <div class="section-heading"><h3 id="trace-heading">Tool trace</h3><span id="trace-status">Waiting</span></div>
+            <p class="trace-help">Exact MCP calls and results for this turn.</p>
+            <pre id="trace">Waiting for a Verity turn.</pre>
+          </section>
+        </aside>
+      </section>
+
+      <section class="controls">
+        <form id="chat-form">
+          <div class="selector"><label for="speaker">Speaking as</label><select id="speaker"><option value="son">Son</option><option value="amma">Amma</option><option value="papa">Papa</option><option value="sister">Sister</option></select></div>
+          <label class="prompt-label" for="prompt">Instruction</label>
+          <div class="composer"><input id="prompt" autocomplete="off" placeholder="Ask Verity something…" /><button id="mic" type="button" title="Browser speech recognition">🎙</button><button id="send" type="submit">Send</button></div>
+          <p class="notice">Voice is optional. This local simulator uses a generic browser voice, never an Alexa voice imitation.</p>
+        </form>
+        <div class="legend"><span><i class="dot idle"></i>Idle</span><span><i class="dot walking"></i>Walking</span><span><i class="dot busy"></i>Working</span><span><i class="dot away"></i>Away</span><span><i class="dot alert"></i>Action failed</span></div>
+      </section>
+    </main>
+    <script src="/pixel-house.js"></script>
+    <script src="/app.js"></script>
+  </body>
+</html>

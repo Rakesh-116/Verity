@@ -1,0 +1,1031 @@
+{
+  "active_speaker_id": "papa",
+  "people": {
+    "son": {
+      "display_name": "Son",
+      "preferences": {
+        "usual_ride_service": "ride_provider_bike",
+        "usual_ride_type": "bike",
+        "usual_destination": "KL University",
+        "response_style": "brief",
+        "github_repo": "owner/repository"
+      }
+    },
+    "amma": {
+      "display_name": "Amma",
+      "preferences": {
+        "usual_ride_service": "compare",
+        "usual_ride_type": "auto",
+        "usual_destination": "airport",
+        "preferred_shopping_providers": [
+          "zepto",
+          "blinkit"
+        ],
+        "response_style": "brief"
+      }
+    },
+    "papa": {
+      "display_name": "Papa",
+      "preferences": {
+        "preferred_subscriptions": [
+          "netflix",
+          "prime_video",
+          "aha"
+        ],
+        "ambient_scene_on_watch": "movie_night",
+        "response_style": "brief",
+        "movie_light_preference": "on_when_alone"
+      }
+    },
+    "sister": {
+      "display_name": "Sister",
+      "preferences": {
+        "usual_transport_mode": "bus",
+        "usual_destination": "campus",
+        "response_style": "brief"
+      }
+    }
+  },
+  "scenes": {},
+  "session_log": [
+    {
+      "timestamp": "2026-09-29T04:38:02.747751+00:00",
+      "person_id": "amma",
+      "domain": "context",
+      "description": "Updated preference usual_destination.",
+      "result": {
+        "person_id": "amma",
+        "key": "usual_destination",
+        "requested_value": "airport",
+        "success": true,
+        "previous_value": "college",
+        "confirmed_value": "airport"
+      }
+    },
+    {
+      "timestamp": "2026-09-29T05:18:31.708324+00:00",
+      "person_id": "son",
+      "domain": "context",
+      "description": "Selected active speaker son.",
+      "result": {
+        "person_id": "son",
+        "success": true,
+        "previous_person_id": "son",
+        "confirmed_person_id": "son"
+      }
+    },
+    {
+      "timestamp": "2026-09-29T05:18:43.900036+00:00",
+      "person_id": "amma",
+      "domain": "context",
+      "description": "Selected active speaker amma.",
+      "result": {
+        "person_id": "amma",
+        "success": true,
+        "previous_person_id": "son",
+        "confirmed_person_id": "amma"
+      }
+    },
+    {
+      "timestamp": "2026-09-29T05:21:37.898182+00:00",
+      "person_id": "son",
+      "domain": "context",
+      "description": "Selected active speaker son.",
+      "result": {
+        "person_id": "son",
+        "success": true,
+        "previous_person_id": "amma",
+        "confirmed_person_id": "son"
+      }
+    },
+    {
+      "timestamp": "2026-09-29T05:21:49.054222+00:00",
+      "person_id": "amma",
+      "domain": "context",
+      "description": "Selected active speaker amma.",
+      "result": {
+        "person_id": "amma",
+        "success": true,
+        "previous_person_id": "son",
+        "confirmed_person_id": "amma"
+      }
+    },
+    {
+      "timestamp": "2026-09-29T05:33:30.836006+00:00",
+      "person_id": "son",
+      "domain": "context",
+      "description": "Selected active speaker son.",
+      "result": {
+        "person_id": "son",
+        "success": true,
+        "previous_person_id": "amma",
+        "confirmed_person_id": "son"
+      }
+    },
+    {
+      "timestamp": "2026-09-29T05:33:37.947130+00:00",
+      "person_id": "son",
+      "domain": "context",
+      "description": "Updated preference response_style.",
+      "result": {
+        "person_id": "son",
+        "key": "response_style",
+        "requested_value": "brief",
+        "success": true,
+        "previous_value": "brief",
+        "confirmed_value": "brief"
+      }
+    },
+    {
+      "timestamp": "2026-09-29T05:33:41.744451+00:00",
+      "person_id": "amma",
+      "domain": "context",
+      "description": "Selected active speaker amma.",
+      "result": {
+        "person_id": "amma",
+        "success": true,
+        "previous_person_id": "son",
+        "confirmed_person_id": "amma"
+      }
+    },
+    {
+      "timestamp": "2026-09-29T05:34:45.688326+00:00",
+      "person_id": "papa",
+      "domain": "context",
+      "description": "Selected active speaker papa.",
+      "result": {
+        "person_id": "papa",
+        "success": true,
+        "previous_person_id": "amma",
+        "confirmed_person_id": "papa"
+      }
+    },
+    {
+      "timestamp": "2026-09-29T05:49:10.141448+00:00",
+      "person_id": "son",
+      "domain": "context",
+      "description": "Selected active speaker son.",
+      "result": {
+        "person_id": "son",
+        "success": true,
+        "previous_person_id": "papa",
+        "confirmed_person_id": "son"
+      }
+    },
+    {
+      "timestamp": "2026-09-29T05:49:17.243029+00:00",
+      "person_id": "son",
+      "domain": "context",
+      "description": "Updated preference response_style.",
+      "result": {
+        "person_id": "son",
+        "key": "response_style",
+        "requested_value": "brief",
+        "success": true,
+        "previous_value": "brief",
+        "confirmed_value": "brief"
+      }
+    },
+    {
+      "timestamp": "2026-09-29T05:49:21.862071+00:00",
+      "person_id": "amma",
+      "domain": "context",
+      "description": "Selected active speaker amma.",
+      "result": {
+        "person_id": "amma",
+        "success": true,
+        "previous_person_id": "son",
+        "confirmed_person_id": "amma"
+      }
+    },
+    {
+      "timestamp": "2026-09-29T05:50:28.287760+00:00",
+      "person_id": "papa",
+      "domain": "context",
+      "description": "Selected active speaker papa.",
+      "result": {
+        "person_id": "papa",
+        "success": true,
+        "previous_person_id": "amma",
+        "confirmed_person_id": "papa"
+      }
+    },
+    {
+      "timestamp": "2026-09-29T05:51:18.710913+00:00",
+      "person_id": "papa",
+      "domain": "context",
+      "description": "Selected active speaker papa.",
+      "result": {
+        "person_id": "papa",
+        "success": true,
+        "previous_person_id": "papa",
+        "confirmed_person_id": "papa"
+      }
+    },
+    {
+      "timestamp": "2026-09-29T08:48:04.635337+00:00",
+      "person_id": "son",
+      "domain": "context",
+      "description": "Selected active speaker son.",
+      "result": {
+        "person_id": "son",
+        "success": true,
+        "previous_person_id": "papa",
+        "confirmed_person_id": "son"
+      }
+    },
+    {
+      "timestamp": "2026-09-29T08:48:11.216667+00:00",
+      "person_id": "son",
+      "domain": "context",
+      "description": "Updated preference response_style.",
+      "result": {
+        "person_id": "son",
+        "key": "response_style",
+        "requested_value": "brief",
+        "success": true,
+        "previous_value": "brief",
+        "confirmed_value": "brief"
+      }
+    },
+    {
+      "timestamp": "2026-09-29T08:48:16.661205+00:00",
+      "person_id": "amma",
+      "domain": "context",
+      "description": "Selected active speaker amma.",
+      "result": {
+        "person_id": "amma",
+        "success": true,
+        "previous_person_id": "son",
+        "confirmed_person_id": "amma"
+      }
+    },
+    {
+      "timestamp": "2026-09-29T08:48:36.087433+00:00",
+      "person_id": "amma",
+      "domain": "context",
+      "description": "Selected active speaker amma.",
+      "result": {
+        "person_id": "amma",
+        "success": true,
+        "previous_person_id": "amma",
+        "confirmed_person_id": "amma"
+      }
+    },
+    {
+      "timestamp": "2026-09-29T08:48:49.934986+00:00",
+      "person_id": "amma",
+      "domain": "context",
+      "description": "Selected active speaker amma.",
+      "result": {
+        "person_id": "amma",
+        "success": true,
+        "previous_person_id": "amma",
+        "confirmed_person_id": "amma"
+      }
+    },
+    {
+      "timestamp": "2026-09-29T08:49:22.041902+00:00",
+      "person_id": "papa",
+      "domain": "context",
+      "description": "Selected active speaker papa.",
+      "result": {
+        "person_id": "papa",
+        "success": true,
+        "previous_person_id": "amma",
+        "confirmed_person_id": "papa"
+      }
+    },
+    {
+      "timestamp": "2026-09-29T08:50:28.551185+00:00",
+      "person_id": "son",
+      "domain": "context",
+      "description": "Selected active speaker son.",
+      "result": {
+        "person_id": "son",
+        "success": true,
+        "previous_person_id": "papa",
+        "confirmed_person_id": "son"
+      }
+    },
+    {
+      "timestamp": "2026-09-29T08:50:33.775954+00:00",
+      "person_id": "son",
+      "domain": "context",
+      "description": "Updated preference response_style.",
+      "result": {
+        "person_id": "son",
+        "key": "response_style",
+        "requested_value": "brief",
+        "success": true,
+        "previous_value": "brief",
+        "confirmed_value": "brief"
+      }
+    },
+    {
+      "timestamp": "2026-09-29T08:50:50.461957+00:00",
+      "person_id": "son",
+      "domain": "context",
+      "description": "Selected active speaker son.",
+      "result": {
+        "person_id": "son",
+        "success": true,
+        "previous_person_id": "son",
+        "confirmed_person_id": "son"
+      }
+    },
+    {
+      "timestamp": "2026-09-29T08:51:03.240433+00:00",
+      "person_id": "son",
+      "domain": "home",
+      "description": "Set home.tv_room.light.01 from on to off.",
+      "result": {
+        "device_id": "home.tv_room.light.01",
+        "requested_state": "off",
+        "success": true,
+        "previous_state": "on",
+        "confirmed_state": "off"
+      }
+    },
+    {
+      "timestamp": "2026-09-29T08:51:31.798222+00:00",
+      "person_id": "son",
+      "domain": "context",
+      "description": "Selected active speaker son.",
+      "result": {
+        "person_id": "son",
+        "success": true,
+        "previous_person_id": "son",
+        "confirmed_person_id": "son"
+      }
+    },
+    {
+      "timestamp": "2026-09-29T08:51:39.584329+00:00",
+      "person_id": "son",
+      "domain": "home",
+      "description": "Set home.tv_room.tv.01 from off to on.",
+      "result": {
+        "device_id": "home.tv_room.tv.01",
+        "requested_state": "on",
+        "success": true,
+        "previous_state": "off",
+        "confirmed_state": "on"
+      }
+    },
+    {
+      "timestamp": "2026-09-29T10:26:34.719324+00:00",
+      "person_id": "son",
+      "domain": "context",
+      "description": "Selected active speaker son.",
+      "result": {
+        "person_id": "son",
+        "success": true,
+        "previous_person_id": "son",
+        "confirmed_person_id": "son"
+      }
+    },
+    {
+      "timestamp": "2026-09-29T10:27:18.591872+00:00",
+      "person_id": "son",
+      "domain": "context",
+      "description": "Selected active speaker son.",
+      "result": {
+        "person_id": "son",
+        "success": true,
+        "previous_person_id": "son",
+        "confirmed_person_id": "son"
+      }
+    },
+    {
+      "timestamp": "2026-09-29T10:27:55.122526+00:00",
+      "person_id": "son",
+      "domain": "context",
+      "description": "Selected active speaker son.",
+      "result": {
+        "person_id": "son",
+        "success": true,
+        "previous_person_id": "son",
+        "confirmed_person_id": "son"
+      }
+    },
+    {
+      "timestamp": "2026-09-29T10:28:01.398610+00:00",
+      "person_id": "son",
+      "domain": "context",
+      "description": "Updated preference response_style.",
+      "result": {
+        "person_id": "son",
+        "key": "response_style",
+        "requested_value": "brief",
+        "success": true,
+        "previous_value": "brief",
+        "confirmed_value": "brief"
+      }
+    },
+    {
+      "timestamp": "2026-09-29T10:28:07.048174+00:00",
+      "person_id": "amma",
+      "domain": "context",
+      "description": "Selected active speaker amma.",
+      "result": {
+        "person_id": "amma",
+        "success": true,
+        "previous_person_id": "son",
+        "confirmed_person_id": "amma"
+      }
+    },
+    {
+      "timestamp": "2026-09-29T10:29:13.119994+00:00",
+      "person_id": "papa",
+      "domain": "context",
+      "description": "Selected active speaker papa.",
+      "result": {
+        "person_id": "papa",
+        "success": true,
+        "previous_person_id": "amma",
+        "confirmed_person_id": "papa"
+      }
+    },
+    {
+      "timestamp": "2026-09-29T10:43:55.922635+00:00",
+      "person_id": "son",
+      "domain": "context",
+      "description": "Selected active speaker son.",
+      "result": {
+        "person_id": "son",
+        "success": true,
+        "previous_person_id": "papa",
+        "confirmed_person_id": "son"
+      }
+    },
+    {
+      "timestamp": "2026-09-29T10:44:02.662386+00:00",
+      "person_id": "son",
+      "domain": "context",
+      "description": "Updated preference response_style.",
+      "result": {
+        "person_id": "son",
+        "key": "response_style",
+        "requested_value": "brief",
+        "success": true,
+        "previous_value": "brief",
+        "confirmed_value": "brief"
+      }
+    },
+    {
+      "timestamp": "2026-09-29T10:44:08.754303+00:00",
+      "person_id": "amma",
+      "domain": "context",
+      "description": "Selected active speaker amma.",
+      "result": {
+        "person_id": "amma",
+        "success": true,
+        "previous_person_id": "son",
+        "confirmed_person_id": "amma"
+      }
+    },
+    {
+      "timestamp": "2026-09-29T11:45:46.932344+00:00",
+      "person_id": "son",
+      "domain": "context",
+      "description": "Selected active speaker son.",
+      "result": {
+        "person_id": "son",
+        "success": true,
+        "previous_person_id": "amma",
+        "confirmed_person_id": "son"
+      }
+    },
+    {
+      "timestamp": "2026-09-29T11:45:53.850433+00:00",
+      "person_id": "son",
+      "domain": "context",
+      "description": "Updated preference response_style.",
+      "result": {
+        "person_id": "son",
+        "key": "response_style",
+        "requested_value": "brief",
+        "success": true,
+        "previous_value": "brief",
+        "confirmed_value": "brief"
+      }
+    },
+    {
+      "timestamp": "2026-09-29T11:45:59.432027+00:00",
+      "person_id": "amma",
+      "domain": "context",
+      "description": "Selected active speaker amma.",
+      "result": {
+        "person_id": "amma",
+        "success": true,
+        "previous_person_id": "son",
+        "confirmed_person_id": "amma"
+      }
+    },
+    {
+      "timestamp": "2026-09-29T11:47:03.012124+00:00",
+      "person_id": "papa",
+      "domain": "context",
+      "description": "Selected active speaker papa.",
+      "result": {
+        "person_id": "papa",
+        "success": true,
+        "previous_person_id": "amma",
+        "confirmed_person_id": "papa"
+      }
+    },
+    {
+      "timestamp": "2026-10-04T18:27:02.894170+00:00",
+      "person_id": "son",
+      "domain": "context",
+      "description": "Selected active speaker son.",
+      "result": {
+        "person_id": "son",
+        "success": true,
+        "previous_person_id": "papa",
+        "confirmed_person_id": "son"
+      }
+    },
+    {
+      "timestamp": "2026-10-04T18:27:05.275824+00:00",
+      "person_id": "son",
+      "domain": "context",
+      "description": "Updated preference response_style.",
+      "result": {
+        "person_id": "son",
+        "key": "response_style",
+        "requested_value": "brief",
+        "success": true,
+        "previous_value": "brief",
+        "confirmed_value": "brief"
+      }
+    },
+    {
+      "timestamp": "2026-10-04T18:27:14.524857+00:00",
+      "person_id": "amma",
+      "domain": "context",
+      "description": "Selected active speaker amma.",
+      "result": {
+        "person_id": "amma",
+        "success": true,
+        "previous_person_id": "son",
+        "confirmed_person_id": "amma"
+      }
+    },
+    {
+      "timestamp": "2026-10-04T18:28:21.520208+00:00",
+      "person_id": "son",
+      "domain": "context",
+      "description": "Selected active speaker son.",
+      "result": {
+        "person_id": "son",
+        "success": true,
+        "previous_person_id": "amma",
+        "confirmed_person_id": "son"
+      }
+    },
+    {
+      "timestamp": "2026-10-04T18:28:32.898775+00:00",
+      "person_id": "amma",
+      "domain": "context",
+      "description": "Selected active speaker amma.",
+      "result": {
+        "person_id": "amma",
+        "success": true,
+        "previous_person_id": "son",
+        "confirmed_person_id": "amma"
+      }
+    },
+    {
+      "timestamp": "2026-10-04T18:29:38.835052+00:00",
+      "person_id": "papa",
+      "domain": "context",
+      "description": "Selected active speaker papa.",
+      "result": {
+        "person_id": "papa",
+        "success": true,
+        "previous_person_id": "amma",
+        "confirmed_person_id": "papa"
+      }
+    },
+    {
+      "timestamp": "2026-10-04T18:30:02.755010+00:00",
+      "person_id": "son",
+      "domain": "context",
+      "description": "Selected active speaker son.",
+      "result": {
+        "person_id": "son",
+        "success": true,
+        "previous_person_id": "papa",
+        "confirmed_person_id": "son"
+      }
+    },
+    {
+      "timestamp": "2026-10-04T18:30:39.959781+00:00",
+      "person_id": "son",
+      "domain": "context",
+      "description": "Selected active speaker son.",
+      "result": {
+        "person_id": "son",
+        "success": true,
+        "previous_person_id": "son",
+        "confirmed_person_id": "son"
+      }
+    },
+    {
+      "timestamp": "2026-10-04T18:30:52.903644+00:00",
+      "person_id": "amma",
+      "domain": "context",
+      "description": "Selected active speaker amma.",
+      "result": {
+        "person_id": "amma",
+        "success": true,
+        "previous_person_id": "son",
+        "confirmed_person_id": "amma"
+      }
+    },
+    {
+      "timestamp": "2026-10-04T18:31:06.210638+00:00",
+      "person_id": "son",
+      "domain": "context",
+      "description": "Selected active speaker son.",
+      "result": {
+        "person_id": "son",
+        "success": true,
+        "previous_person_id": "amma",
+        "confirmed_person_id": "son"
+      }
+    },
+    {
+      "timestamp": "2026-10-04T18:31:15.448587+00:00",
+      "person_id": "son",
+      "domain": "mobility",
+      "description": "Created pending rapido ride proposal.",
+      "result": {
+        "person_id": "son",
+        "success": true,
+        "proposal_id": "proposal.ride_booking.5cbd7cbe2b7a",
+        "status": "pending_approval",
+        "quote": {
+          "ride_id": "ride.rapido.son.1",
+          "provider": "rapido",
+          "ride_type": "bike",
+          "destination": "KL University",
+          "price_inr": 95,
+          "eta_minutes": 5,
+          "operation": "ride_quote",
+          "availability": "simulated",
+          "source": "verity.simulated.rapido",
+          "timestamp": "2026-10-04T18:31:15.446011+00:00",
+          "simulated": true
+        }
+      }
+    },
+    {
+      "timestamp": "2026-10-04T18:31:17.609873+00:00",
+      "person_id": "son",
+      "domain": "mobility",
+      "description": "Approved ride proposal proposal.ride_booking.5cbd7cbe2b7a.",
+      "result": {
+        "proposal_id": "proposal.ride_booking.5cbd7cbe2b7a",
+        "success": true,
+        "confirmed_status": "approved",
+        "payload": {
+          "ride_id": "ride.rapido.son.1",
+          "provider": "rapido",
+          "ride_type": "bike",
+          "destination": "KL University",
+          "price_inr": 95,
+          "eta_minutes": 5,
+          "operation": "ride_quote",
+          "availability": "simulated",
+          "source": "verity.simulated.rapido",
+          "timestamp": "2026-10-04T18:31:15.446011+00:00",
+          "simulated": true
+        }
+      }
+    },
+    {
+      "timestamp": "2026-10-04T18:31:18.723207+00:00",
+      "person_id": "amma",
+      "domain": "context",
+      "description": "Selected active speaker amma.",
+      "result": {
+        "person_id": "amma",
+        "success": true,
+        "previous_person_id": "son",
+        "confirmed_person_id": "amma"
+      }
+    },
+    {
+      "timestamp": "2026-10-04T18:31:19.907297+00:00",
+      "person_id": "son",
+      "domain": "mobility",
+      "description": "Created simulated rapido ride booking.",
+      "result": {
+        "person_id": "son",
+        "proposal_id": "proposal.ride_booking.5cbd7cbe2b7a",
+        "provider": "rapido",
+        "ride_id": "ride.rapido.son.1",
+        "success": true,
+        "confirmed_booking_id": "booking.rapido.son.5cbd7cbe2b7a",
+        "confirmed_eta_minutes": 5,
+        "operation": "ride_booking",
+        "availability": "simulated",
+        "source": "verity.simulated.rapido",
+        "timestamp": "2026-10-04T18:31:19.906806+00:00",
+        "simulated": true
+      }
+    },
+    {
+      "timestamp": "2026-10-04T18:32:13.804523+00:00",
+      "person_id": "son",
+      "domain": "context",
+      "description": "Selected active speaker son.",
+      "result": {
+        "person_id": "son",
+        "success": true,
+        "previous_person_id": "amma",
+        "confirmed_person_id": "son"
+      }
+    },
+    {
+      "timestamp": "2026-10-04T18:32:26.136479+00:00",
+      "person_id": "amma",
+      "domain": "context",
+      "description": "Selected active speaker amma.",
+      "result": {
+        "person_id": "amma",
+        "success": true,
+        "previous_person_id": "son",
+        "confirmed_person_id": "amma"
+      }
+    },
+    {
+      "timestamp": "2026-10-04T18:33:10.617161+00:00",
+      "person_id": "amma",
+      "domain": "context",
+      "description": "Selected active speaker amma.",
+      "result": {
+        "person_id": "amma",
+        "success": true,
+        "previous_person_id": "amma",
+        "confirmed_person_id": "amma"
+      }
+    },
+    {
+      "timestamp": "2026-10-04T18:33:31.613283+00:00",
+      "person_id": "papa",
+      "domain": "context",
+      "description": "Selected active speaker papa.",
+      "result": {
+        "person_id": "papa",
+        "success": true,
+        "previous_person_id": "amma",
+        "confirmed_person_id": "papa"
+      }
+    },
+    {
+      "timestamp": "2026-10-04T18:36:00.902857+00:00",
+      "person_id": "papa",
+      "domain": "context",
+      "description": "Selected active speaker papa.",
+      "result": {
+        "person_id": "papa",
+        "success": true,
+        "previous_person_id": "papa",
+        "confirmed_person_id": "papa"
+      }
+    },
+    {
+      "timestamp": "2026-10-04T18:36:26.389301+00:00",
+      "person_id": "papa",
+      "domain": "context",
+      "description": "Selected active speaker papa.",
+      "result": {
+        "person_id": "papa",
+        "success": true,
+        "previous_person_id": "papa",
+        "confirmed_person_id": "papa"
+      }
+    },
+    {
+      "timestamp": "2026-10-04T18:40:34.047272+00:00",
+      "person_id": "papa",
+      "domain": "context",
+      "description": "Selected active speaker papa.",
+      "result": {
+        "person_id": "papa",
+        "success": true,
+        "previous_person_id": "papa",
+        "confirmed_person_id": "papa"
+      }
+    },
+    {
+      "timestamp": "2026-10-04T18:40:51.426264+00:00",
+      "person_id": "papa",
+      "domain": "context",
+      "description": "Selected active speaker papa.",
+      "result": {
+        "person_id": "papa",
+        "success": true,
+        "previous_person_id": "papa",
+        "confirmed_person_id": "papa"
+      }
+    },
+    {
+      "timestamp": "2026-10-04T18:40:52.871991+00:00",
+      "person_id": "papa",
+      "domain": "home",
+      "description": "Saved default movie setup.",
+      "result": {
+        "person_id": "papa",
+        "success": true,
+        "previous_setup": null,
+        "confirmed_setup": {
+          "room": "tv_room",
+          "device_states": {
+            "tv": "on",
+            "light": "off"
+          }
+        }
+      }
+    },
+    {
+      "timestamp": "2026-10-04T18:46:59.974758+00:00",
+      "person_id": "papa",
+      "domain": "context",
+      "description": "Selected active speaker papa.",
+      "result": {
+        "person_id": "papa",
+        "success": true,
+        "previous_person_id": "papa",
+        "confirmed_person_id": "papa"
+      }
+    },
+    {
+      "timestamp": "2026-10-04T18:47:02.140207+00:00",
+      "person_id": "papa",
+      "domain": "home",
+      "description": "Prepared saved movie setup in tv_room.",
+      "result": {
+        "person_id": "papa",
+        "room": "tv_room",
+        "setup_source": "saved",
+        "success": true,
+        "confirmed_devices": [
+          {
+            "device_id": "home.tv_room.light.01",
+            "type": "light",
+            "previous_state": "off",
+            "confirmed_state": "off"
+          },
+          {
+            "device_id": "home.tv_room.tv.01",
+            "type": "tv",
+            "previous_state": "on",
+            "confirmed_state": "on"
+          }
+        ]
+      }
+    },
+    {
+      "timestamp": "2026-10-04T18:47:34.312529+00:00",
+      "person_id": "papa",
+      "domain": "context",
+      "description": "Selected active speaker papa.",
+      "result": {
+        "person_id": "papa",
+        "success": true,
+        "previous_person_id": "papa",
+        "confirmed_person_id": "papa"
+      }
+    },
+    {
+      "timestamp": "2026-10-04T18:47:36.527252+00:00",
+      "person_id": "papa",
+      "domain": "home",
+      "description": "Prepared saved movie setup in tv_room.",
+      "result": {
+        "person_id": "papa",
+        "room": "tv_room",
+        "setup_source": "saved",
+        "success": true,
+        "confirmed_devices": [
+          {
+            "device_id": "home.tv_room.light.01",
+            "type": "light",
+            "previous_state": "off",
+            "confirmed_state": "off"
+          },
+          {
+            "device_id": "home.tv_room.tv.01",
+            "type": "tv",
+            "previous_state": "on",
+            "confirmed_state": "on"
+          }
+        ]
+      }
+    },
+    {
+      "timestamp": "2026-10-04T18:58:01.784004+00:00",
+      "person_id": "papa",
+      "domain": "context",
+      "description": "Selected active speaker papa.",
+      "result": {
+        "person_id": "papa",
+        "success": true,
+        "previous_person_id": "papa",
+        "confirmed_person_id": "papa"
+      }
+    },
+    {
+      "timestamp": "2026-10-04T18:58:03.744849+00:00",
+      "person_id": "papa",
+      "domain": "home",
+      "description": "Prepared saved movie setup in tv_room.",
+      "result": {
+        "person_id": "papa",
+        "room": "tv_room",
+        "setup_source": "saved",
+        "success": true,
+        "confirmed_devices": [
+          {
+            "device_id": "home.tv_room.light.01",
+            "type": "light",
+            "previous_state": "off",
+            "confirmed_state": "off"
+          },
+          {
+            "device_id": "home.tv_room.tv.01",
+            "type": "tv",
+            "previous_state": "on",
+            "confirmed_state": "on"
+          }
+        ]
+      }
+    },
+    {
+      "timestamp": "2026-10-04T18:58:18.350935+00:00",
+      "person_id": "papa",
+      "domain": "context",
+      "description": "Selected active speaker papa.",
+      "result": {
+        "person_id": "papa",
+        "success": true,
+        "previous_person_id": "papa",
+        "confirmed_person_id": "papa"
+      }
+    },
+    {
+      "timestamp": "2026-10-04T18:58:20.661983+00:00",
+      "person_id": "papa",
+      "domain": "home",
+      "description": "Saved movie setup preference.",
+      "result": {
+        "person_id": "papa",
+        "success": true,
+        "previous_setup": {
+          "room": "tv_room",
+          "device_states": {
+            "tv": "on",
+            "light": "off"
+          }
+        },
+        "confirmed_setup": {
+          "room": "tv_room",
+          "device_states": {
+            "tv": "on",
+            "light": "on"
+          }
+        }
+      }
+    },
+    {
+      "timestamp": "2026-10-04T18:58:21.723104+00:00",
+      "person_id": "papa",
+      "domain": "home",
+      "description": "Prepared saved movie setup in tv_room.",
+      "result": {
+        "person_id": "papa",
+        "room": "tv_room",
+        "setup_source": "saved",
+        "success": true,
+        "confirmed_devices": [
+          {
+            "device_id": "home.tv_room.light.01",
+            "type": "light",
+            "previous_state": "off",
+            "confirmed_state": "on"
+          },
+          {
+            "device_id": "home.tv_room.tv.01",
+            "type": "tv",
+            "previous_state": "on",
+            "confirmed_state": "on"
+          }
+        ]
+      }
+    }
+  ]
+}
