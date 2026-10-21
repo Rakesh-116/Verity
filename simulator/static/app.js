@@ -255,5 +255,8 @@ async function refreshRides() {
   } catch (error) { /* keep the last view; the status line shows connection problems */ }
 }
 
-renderCharacters(); refreshState(); setInterval(refreshState, 2500);
-refreshRides(); setInterval(refreshRides, 1000);
+// Each MCP read opens its own session on the server, so polling is kept slow and pauses in background tabs.
+const POLL_MS = { state: 5000, rides: 2000 };
+function whenVisible(fn) { if (!document.hidden) fn(); }
+renderCharacters(); refreshState(); setInterval(() => whenVisible(refreshState), POLL_MS.state);
+refreshRides(); setInterval(() => whenVisible(refreshRides), POLL_MS.rides);
