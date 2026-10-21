@@ -5,14 +5,16 @@ import json
 import sys
 from pathlib import Path
 
+from isolated_state import make_isolated_state, server_environment
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 
 PROJECT_DIRECTORY = Path(__file__).resolve().parents[1]
 SERVER_PATH = PROJECT_DIRECTORY / "server" / "server.py"
-HOME_STATE_PATH = PROJECT_DIRECTORY / "server" / "state" / "home_state.json"
-MEMORY_PATH = PROJECT_DIRECTORY / "server" / "state" / "memory.json"
+STATE_DIRECTORY = make_isolated_state()
+HOME_STATE_PATH = STATE_DIRECTORY / "home_state.json"
+MEMORY_PATH = STATE_DIRECTORY / "memory.json"
 
 
 def response_json(result: object) -> object:
@@ -24,7 +26,7 @@ async def verify() -> None:
     original_memory = MEMORY_PATH.read_text(encoding="utf-8")
     initial_memory = json.loads(original_memory)
     parameters = StdioServerParameters(
-        command=sys.executable, args=[str(SERVER_PATH)], cwd=str(PROJECT_DIRECTORY)
+        command=sys.executable, args=[str(SERVER_PATH)], cwd=str(PROJECT_DIRECTORY), env=server_environment(STATE_DIRECTORY)
     )
     try:
         async with stdio_client(parameters) as (reader, writer):

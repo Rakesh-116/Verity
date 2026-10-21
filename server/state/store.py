@@ -1,12 +1,14 @@
 """Small, shared JSON persistence helpers for the hackathon prototype."""
 
 import json
+import os
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 
-STATE_DIRECTORY = Path(__file__).resolve().parent
+# VERITY_STATE_DIR lets tests run against a temp copy so tracked JSON is never dirtied.
+STATE_DIRECTORY = Path(os.getenv("VERITY_STATE_DIR") or Path(__file__).resolve().parent)
 
 
 def load_json(filename: str) -> dict[str, Any]:

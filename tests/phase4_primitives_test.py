@@ -5,16 +5,18 @@ import json
 import sys
 from pathlib import Path
 
+from isolated_state import make_isolated_state, server_environment
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 
 PROJECT_DIRECTORY = Path(__file__).resolve().parents[1]
 SERVER_PATH = PROJECT_DIRECTORY / "server" / "server.py"
-HOME_STATE_PATH = PROJECT_DIRECTORY / "server" / "state" / "home_state.json"
-MEMORY_PATH = PROJECT_DIRECTORY / "server" / "state" / "memory.json"
-PENDING_ACTIONS_PATH = PROJECT_DIRECTORY / "server" / "state" / "pending_actions.json"
-ROBOT_STATE_PATH = PROJECT_DIRECTORY / "server" / "state" / "robot_state.json"
+STATE_DIRECTORY = make_isolated_state()
+HOME_STATE_PATH = STATE_DIRECTORY / "home_state.json"
+MEMORY_PATH = STATE_DIRECTORY / "memory.json"
+PENDING_ACTIONS_PATH = STATE_DIRECTORY / "pending_actions.json"
+ROBOT_STATE_PATH = STATE_DIRECTORY / "robot_state.json"
 
 
 def output(result: object) -> object:
@@ -26,7 +28,7 @@ async def verify() -> None:
     original_memory = MEMORY_PATH.read_text(encoding="utf-8")
     original_pending_actions = PENDING_ACTIONS_PATH.read_text(encoding="utf-8")
     original_robot_state = ROBOT_STATE_PATH.read_text(encoding="utf-8")
-    parameters = StdioServerParameters(command=sys.executable, args=[str(SERVER_PATH)], cwd=str(PROJECT_DIRECTORY))
+    parameters = StdioServerParameters(command=sys.executable, args=[str(SERVER_PATH)], cwd=str(PROJECT_DIRECTORY), env=server_environment(STATE_DIRECTORY))
     try:
         async with stdio_client(parameters) as (reader, writer):
             async with ClientSession(reader, writer) as session:
