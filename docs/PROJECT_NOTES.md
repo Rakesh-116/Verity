@@ -60,8 +60,8 @@ runtime to claim those integrations.
 
 | Integration | Current status | Rule |
 | --- | --- | --- |
-| Rapido, Ola, Uber | Simulated ride adapters | Quotes and bookings are labelled simulated; never claim a real booking. |
-| Zepto, Blinkit, Zomato, Flipkart, Amazon | Simulated delivery adapters | Quotes/orders are labelled simulated; never claim a real order. |
+| QuickRide, RideCo, CityCab | Simulated ride adapters | Quotes and bookings are labelled simulated; never claim a real booking. |
+| DashMart, QuickMart, FoodDash, ShopNest, MegaShop | Simulated delivery adapters | Quotes/orders are labelled simulated; never claim a real order. |
 | Home devices and Housebot | Controlled virtual environment | State is real inside Verity's simulator, but hardware is simulated. |
 | GitHub | Not yet implemented | Add only with authorized GitHub REST API access and label it live. |
 | AWS services | Planned | Do not claim them in the README/demo until called at runtime. |

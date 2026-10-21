@@ -18,8 +18,8 @@
         "usual_ride_type": "auto",
         "usual_destination": "airport",
         "preferred_shopping_providers": [
-          "zepto",
-          "blinkit"
+          "dashmart",
+          "quickmart"
         ],
         "response_style": "brief"
       }
@@ -660,22 +660,22 @@
       "timestamp": "2026-10-04T18:31:15.448587+00:00",
       "person_id": "son",
       "domain": "mobility",
-      "description": "Created pending rapido ride proposal.",
+      "description": "Created pending quickride ride proposal.",
       "result": {
         "person_id": "son",
         "success": true,
         "proposal_id": "proposal.ride_booking.5cbd7cbe2b7a",
         "status": "pending_approval",
         "quote": {
-          "ride_id": "ride.rapido.son.1",
-          "provider": "rapido",
+          "ride_id": "ride.quickride.son.1",
+          "provider": "quickride",
           "ride_type": "bike",
           "destination": "KL University",
           "price_inr": 95,
           "eta_minutes": 5,
           "operation": "ride_quote",
           "availability": "simulated",
-          "source": "verity.simulated.rapido",
+          "source": "verity.simulated.quickride",
           "timestamp": "2026-10-04T18:31:15.446011+00:00",
           "simulated": true
         }
@@ -691,15 +691,15 @@
         "success": true,
         "confirmed_status": "approved",
         "payload": {
-          "ride_id": "ride.rapido.son.1",
-          "provider": "rapido",
+          "ride_id": "ride.quickride.son.1",
+          "provider": "quickride",
           "ride_type": "bike",
           "destination": "KL University",
           "price_inr": 95,
           "eta_minutes": 5,
           "operation": "ride_quote",
           "availability": "simulated",
-          "source": "verity.simulated.rapido",
+          "source": "verity.simulated.quickride",
           "timestamp": "2026-10-04T18:31:15.446011+00:00",
           "simulated": true
         }
@@ -721,18 +721,18 @@
       "timestamp": "2026-10-04T18:31:19.907297+00:00",
       "person_id": "son",
       "domain": "mobility",
-      "description": "Created simulated rapido ride booking.",
+      "description": "Created simulated quickride ride booking.",
       "result": {
         "person_id": "son",
         "proposal_id": "proposal.ride_booking.5cbd7cbe2b7a",
-        "provider": "rapido",
-        "ride_id": "ride.rapido.son.1",
+        "provider": "quickride",
+        "ride_id": "ride.quickride.son.1",
         "success": true,
-        "confirmed_booking_id": "booking.rapido.son.5cbd7cbe2b7a",
+        "confirmed_booking_id": "booking.quickride.son.5cbd7cbe2b7a",
         "confirmed_eta_minutes": 5,
         "operation": "ride_booking",
         "availability": "simulated",
-        "source": "verity.simulated.rapido",
+        "source": "verity.simulated.quickride",
         "timestamp": "2026-10-04T18:31:19.906806+00:00",
         "simulated": true
       }

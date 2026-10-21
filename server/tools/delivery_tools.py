@@ -12,11 +12,11 @@ from state.store import append_action_log, load_json
 DELIVERY_PROVIDERS = {
     provider.provider_id: provider
     for provider in (
-        SimulatedDeliveryProvider("zepto", base_price_inr=40, eta_minutes=10),
-        SimulatedDeliveryProvider("blinkit", base_price_inr=45, eta_minutes=15),
-        SimulatedDeliveryProvider("zomato", base_price_inr=50, eta_minutes=20),
-        SimulatedDeliveryProvider("flipkart", base_price_inr=55, eta_minutes=25),
-        SimulatedDeliveryProvider("amazon", base_price_inr=60, eta_minutes=30),
+        SimulatedDeliveryProvider("dashmart", base_price_inr=40, eta_minutes=10),
+        SimulatedDeliveryProvider("quickmart", base_price_inr=45, eta_minutes=15),
+        SimulatedDeliveryProvider("fooddash", base_price_inr=50, eta_minutes=20),
+        SimulatedDeliveryProvider("shopnest", base_price_inr=55, eta_minutes=25),
+        SimulatedDeliveryProvider("megashop", base_price_inr=60, eta_minutes=30),
     )
 }
 

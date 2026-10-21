@@ -59,8 +59,8 @@ async def verify() -> None:
                 booked = output(await session.call_tool("book_ride", {"person_id": "amma", "proposal_id": proposal["proposal_id"]}))
                 assert booked["success"] is True and booked["confirmed_booking_id"]
                 items = output(await session.call_tool("compare_item_prices", {"person_id": "amma", "item": "milk"}))
-                assert items["quotes"][0]["provider"] == "zepto"
-                order_proposal = output(await session.call_tool("create_order_proposal", {"person_id": "amma", "provider": "zepto", "items": ["milk"]}))
+                assert items["quotes"][0]["provider"] == "dashmart"
+                order_proposal = output(await session.call_tool("create_order_proposal", {"person_id": "amma", "provider": "dashmart", "items": ["milk"]}))
                 order_approval = output(await session.call_tool("approve_order", {"person_id": "amma", "proposal_id": order_proposal["proposal_id"]}))
                 assert order_approval["confirmed_status"] == "approved"
                 ordered = output(await session.call_tool("place_order", {"person_id": "amma", "proposal_id": order_proposal["proposal_id"]}))

@@ -12,9 +12,9 @@ from state.store import append_action_log, load_json
 RIDE_PROVIDERS = {
     provider.provider_id: provider
     for provider in (
-        SimulatedRideProvider("rapido", price_inr=95, eta_minutes=5),
-        SimulatedRideProvider("ola", price_inr=110, eta_minutes=7),
-        SimulatedRideProvider("uber", price_inr=125, eta_minutes=4),
+        SimulatedRideProvider("quickride", price_inr=95, eta_minutes=5),
+        SimulatedRideProvider("rideco", price_inr=110, eta_minutes=7),
+        SimulatedRideProvider("citycab", price_inr=125, eta_minutes=4),
     )
 }
 

@@ -7,15 +7,15 @@
       "status": "executed",
       "created_at": "2026-10-04T18:31:15.447215+00:00",
       "payload": {
-        "ride_id": "ride.rapido.son.1",
-        "provider": "rapido",
+        "ride_id": "ride.quickride.son.1",
+        "provider": "quickride",
         "ride_type": "bike",
         "destination": "KL University",
         "price_inr": 95,
         "eta_minutes": 5,
         "operation": "ride_quote",
         "availability": "simulated",
-        "source": "verity.simulated.rapido",
+        "source": "verity.simulated.quickride",
         "timestamp": "2026-10-04T18:31:15.446011+00:00",
         "simulated": true
       },
