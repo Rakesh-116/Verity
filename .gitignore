@@ -2,3 +2,5 @@
 __pycache__/
 *.py[cod]
 .env
+# Runtime-only hedge records written by the simulator
+server/state/ride_hedges.json

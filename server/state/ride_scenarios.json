@@ -1,0 +1,30 @@
+{
+  "_note": "Simulated platform behavior for the ride-hedge demo. Times are seconds after a ride request. Not real provider data.",
+  "platforms": {
+    "quickride": {
+      "display_name": "QuickRide",
+      "accept_after_seconds": 3,
+      "eta_minutes": 7,
+      "fare_inr": 92,
+      "driver": "Ravi",
+      "driver_cancels_after_seconds": null,
+      "cancellation_fee_inr": 15
+    },
+    "citycab": {
+      "display_name": "CityCab",
+      "accept_after_seconds": 8,
+      "eta_minutes": 4,
+      "fare_inr": 128,
+      "driver": "Suresh",
+      "driver_cancels_after_seconds": 20,
+      "cancellation_fee_inr": 0
+    }
+  },
+  "hedge_policy": {
+    "decision_window_seconds": 15,
+    "request_timeout_seconds": 60,
+    "max_fare_inr": 200,
+    "max_rounds": 2,
+    "proposal_ttl_seconds": 600
+  }
+}

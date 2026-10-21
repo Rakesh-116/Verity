@@ -31,6 +31,13 @@ from tools.delivery_tools import (
     place_order,
 )
 from tools.approval_tools import list_pending_actions
+from tools.hedge_tools import (
+    approve_ride_hedge,
+    create_ride_hedge_proposal,
+    get_ride_hedge_status,
+    start_ride_hedge,
+)
+from tools.routine_tools import get_routines
 from tools.proactive_tools import (
     approve_energy_saving_proposal,
     create_energy_saving_proposal,
@@ -72,5 +79,10 @@ for tool in (
     send_robot_to_room,
     compare_travel_options,
     get_assessment_status,
+    create_ride_hedge_proposal,
+    approve_ride_hedge,
+    start_ride_hedge,
+    get_ride_hedge_status,
+    get_routines,
 ):
     mcp.tool()(tool)

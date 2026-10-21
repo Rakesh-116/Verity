@@ -1,0 +1,22 @@
+{
+  "_note": "Seeded household history for routine suggestions. Counts come from this data; nothing is learned by a model. weekday: 0=Monday. Events are one per week at most.",
+  "son": {
+    "weeks_observed": 8,
+    "events": [
+      {"weekday": 0, "hour": 10, "kind": "ride", "origin": "pg", "dest": "office"},
+      {"weekday": 0, "hour": 10, "kind": "ride", "origin": "pg", "dest": "office"},
+      {"weekday": 0, "hour": 10, "kind": "ride", "origin": "pg", "dest": "office"},
+      {"weekday": 0, "hour": 10, "kind": "ride", "origin": "pg", "dest": "office"},
+      {"weekday": 0, "hour": 10, "kind": "ride", "origin": "pg", "dest": "office"},
+      {"weekday": 0, "hour": 10, "kind": "ride", "origin": "pg", "dest": "office"},
+      {"weekday": 0, "hour": 10, "kind": "ride", "origin": "pg", "dest": "office"},
+      {"weekday": 0, "hour": 9, "kind": "ride", "origin": "pg", "dest": "cafe"},
+      {"weekday": 1, "hour": 18, "kind": "ride", "origin": "office", "dest": "pg"},
+      {"weekday": 1, "hour": 18, "kind": "ride", "origin": "office", "dest": "pg"},
+      {"weekday": 1, "hour": 18, "kind": "ride", "origin": "office", "dest": "pg"},
+      {"weekday": 1, "hour": 18, "kind": "ride", "origin": "office", "dest": "pg"},
+      {"weekday": 1, "hour": 18, "kind": "ride", "origin": "office", "dest": "pg"},
+      {"weekday": 1, "hour": 18, "kind": "ride", "origin": "office", "dest": "pg"}
+    ]
+  }
+}
