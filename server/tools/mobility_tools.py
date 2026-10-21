@@ -39,7 +39,7 @@ def compare_ride_options(person_id: str, destination: str | None = None, ride_ty
     return {"person_id": person_id, "destination": resolved_destination, "ride_type": resolved_ride_type, "quotes": quotes, "recommended_ride_id": quotes[0]["ride_id"], "recommendation_reason": "lowest_price_then_fastest_eta"}
 
 
-def create_ride_booking_proposal(person_id: str, provider: str, ride_id: str) -> dict[str, Any]:
+def create_ride_booking_proposal(person_id: str, provider: str, ride_id: str, destination: str | None = None) -> dict[str, Any]:
     """Create a pending ride proposal; a later explicit approval is required to book it."""
     preferences, error = _person_preferences(person_id)
     if error is not None:
@@ -47,7 +47,11 @@ def create_ride_booking_proposal(person_id: str, provider: str, ride_id: str) ->
     adapter = RIDE_PROVIDERS.get(provider)
     if adapter is None or not ride_id.startswith(f"ride.{provider}.{person_id}."):
         return {"person_id": person_id, "provider": provider, "ride_id": ride_id, "success": False, "reason": "ride_quote_not_found"}
-    quote = adapter.quote(person_id, preferences.get("usual_destination") or "unspecified", preferences.get("usual_ride_type") or "auto")
+    # Use the destination the person asked for; fall back to the saved one only when none was given.
+    resolved_destination = destination or preferences.get("usual_destination")
+    if not resolved_destination:
+        return {"person_id": person_id, "provider": provider, "ride_id": ride_id, "success": False, "reason": "needs_clarification", "field": "destination", "message": "Where should the ride go?"}
+    quote = adapter.quote(person_id, resolved_destination, preferences.get("usual_ride_type") or "auto")
     proposal = create_proposal(person_id, "ride_booking", quote)
     result = {"person_id": person_id, "success": True, "proposal_id": proposal["proposal_id"], "status": proposal["status"], "quote": quote}
     append_action_log(person_id, "mobility", f"Created pending {provider} ride proposal.", result)

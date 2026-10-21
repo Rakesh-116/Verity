@@ -1,45 +1,70 @@
-# Verity — a trustworthy context-aware action agent for Alexa+
+# Verity — a trustworthy, context-aware action agent for Alexa+
 
-> A daily-context agent for a developer living at home: it connects live home,
-> work, and mobility context from one natural-language request.
+> Verity connects one household's home, commute, and shopping context behind
+> explicit MCP tools. It checks live state, compares simulated providers,
+> asks for approval before any consequential action, and reports exactly what
+> it confirmed.
 
-## Backend checkpoints
+**Disclosure.** This is a real, self-hosted MCP server (spec `2025-11-25`,
+Streamable HTTP) plus a **simulated Alexa+ experience**: a local browser host
+that stands in for Alexa+ and calls Verity over the same MCP transport.
+It is not a physical Echo device, not the gated Alexa+ developer environment,
+and not connected to Amazon's Alexa+ service. Every ride, delivery, home
+device, and robot result is labeled `simulated`, because no real provider or
+device is contacted.
 
-Phase 1 is complete. Phase 2 exposes these primitive home tools:
+## What it does
 
-- `get_home_state()`
-- `get_occupancy(room: str | None)`
-- `list_devices(room: str | None)`
-- `set_device_state(device_id: str, state: str)`
+- **Home primitives:** read occupancy and devices, set one device with an
+  explicit ID, and move a household member between rooms. Writes confirm the
+  new state or return a specific failure reason.
+- **Person context:** the active speaker, per-person saved preferences, scenes,
+  and the last recorded action.
+- **Mobility:** compare simulated ride providers, then `proposal → approval →
+  booking`. Nothing is booked until a person approves the exact proposal.
+- **Shopping:** the same proposal → approval → order flow across simulated
+  delivery providers.
+- **Proactive energy saving:** finds lights or fans on in empty rooms and
+  proposes switching them off. A stale proposal is refused, not executed.
+- **Explainability:** every state-changing call is appended to an action log
+  with its result.
 
-All device IDs are explicit (for example, `home.living_room.light.01`). Write
-results always confirm the requested state or return a specific failure reason.
+29 MCP tools are registered in [server/app.py](server/app.py).
 
 ## Architecture
 
-The server is organized by feature, keeping every primitive in the domain it affects:
-
 ```text
-app.py (MCP entry point)
-       ↓
-tools/home_tools.py (home primitives)
-       ↓
-state/store.py (JSON load/save)
-       ↓
-state/*.json (source of truth)
+Browser (simulator UI, optional Web Speech)
+   ↓ /api/chat
+simulator/agent_host.py   LLM chooses MCP tools; reads skills/verity/SKILL.md
+   ↓ Streamable HTTP MCP (simulator/mcp_gateway.py)
+server/http_server.py → server/app.py (29 tools)
+   ↓
+server/tools/*            primitives per domain
+   ↓
+services/                 approvals, deterministic ranking, provenance
+   ↓
+server/state/*.json       seeded household state (source of truth)
 ```
 
-`services/ai/` is a separate, centralized provider layer. It offers one stable
-`AIOrchestrator` interface and adapters for OpenAI and Groq. It is not exposed
-as an MCP tool yet, and it cannot run a hardcoded home scenario. Alexa+ remains
-the eventual agent that chooses MCP tools.
+- **The LLM only selects tools.** Ranking (`comparison_engine.py`), approval
+  and execution checks (`approval_store.py`), and stale-proposal refusal live in
+  Python, so the model never decides truth or bypasses policy.
+- **The Agent Skill** ([skills/verity/SKILL.md](skills/verity/SKILL.md)) holds
+  the routing and confirmation rules the host gives the model.
+- **Optional LLM providers:** Groq (default), OpenAI, or Amazon Bedrock Converse
+  (`AI_PROVIDER=bedrock`). The Bedrock path is implemented but has not been run
+  against AWS. See [docs/AWS_MIGRATION_TODO.md](docs/AWS_MIGRATION_TODO.md).
 
-```text
-Optional local AI caller → AIOrchestrator → OpenAIProvider | GroqProvider
-MCP client / Alexa+       → primitive MCP tools → JSON state
-```
+## Requirements
 
-### Setup (PowerShell)
+- Python 3.11+ (the code uses `datetime.UTC`)
+- An LLM API key for the simulator only (Groq or OpenAI). The MCP server and
+  its tests need no keys.
+
+## Setup
+
+PowerShell:
 
 ```powershell
 python -m venv .venv
@@ -47,108 +72,92 @@ python -m venv .venv
 python -m pip install -r requirements.txt
 ```
 
-## Configure one AI provider
+bash:
 
-Copy `.env.example` to a private `.env` file and add one provider key. The
-simulator loads this local file automatically; never commit it. Shell variables
-take precedence over `.env` values.
-
-```powershell
-$env:AI_PROVIDER = "groq"
-$env:GROQ_API_KEY = "your-key"
-$env:GROQ_MODEL = "openai/gpt-oss-20b"
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
 ```
 
-Or select OpenAI:
+The pins matter: `mcp==1.27.2` (spec `2025-11-25`) and `pydantic>=2.12,<2.13`
+(pydantic 2.14 breaks the MCP SDK's imports).
 
-```powershell
-$env:AI_PROVIDER = "openai"
-$env:OPENAI_API_KEY = "your-key"
-$env:OPENAI_MODEL = "gpt-5"
+Copy `.env.example` to `.env` and set one provider key. Never commit `.env`.
+
+```text
+AI_PROVIDER=groq
+GROQ_API_KEY=your-key
+GROQ_MODEL=openai/gpt-oss-20b
 ```
 
-Check the selected provider independently of MCP:
+## Run
 
-```powershell
-.\.venv\Scripts\python.exe .\scripts\ask_ai.py "Confirm the provider is working."
-```
-
-Do not put keys in source files, `state/home_state.json`, or `state/memory.json`.
-
-### Run the server
-
-```powershell
-.\.venv\Scripts\python.exe .\server\server.py
-```
-
-The process intentionally shows no terminal UI: it is waiting for an MCP
-client over standard input/output. Stop it with `Ctrl+C`.
-
-## Run the simulated Alexa+ experience
-
-This is a local web host, not a claim of connection to a physical Echo or the
-gated Alexa+ developer environment. It uses a real Streamable HTTP MCP client
-to discover and call Verity tools.
-
-In terminal 1, start the local MCP endpoint:
+Start the MCP server over Streamable HTTP (terminal 1):
 
 ```powershell
 .\.venv\Scripts\python.exe -m server.http_server
 ```
 
-In terminal 2, configure either Groq or OpenAI as described above, then start
-the simulator host:
+Start the simulated Alexa+ host (terminal 2), then open
+`http://127.0.0.1:8770`:
 
 ```powershell
 .\.venv\Scripts\python.exe -m simulator.app
 ```
 
-Open `http://127.0.0.1:8770`. You can type a request or use the microphone in a
-browser that supports the Web Speech API. The screen displays the agent's MCP
-trace. Browser text-to-speech is optional and uses a generic synthesized voice;
-it is not an Alexa voice imitation.
+The screen shows the agent's MCP trace for every turn. Without an LLM key the
+simulator says so and does not invent an action.
 
-The simulator requires a configured LLM key to select tools. Without one, it
-shows a clear configuration message and does not attempt a hidden fallback or
-invent an action.
-
-### Verify with MCP Inspector
-
-In a second PowerShell terminal, start the Inspector:
+To run the server over stdio for an MCP client instead:
 
 ```powershell
-npx @modelcontextprotocol/inspector
+.\.venv\Scripts\python.exe server\server.py
 ```
 
-Open the local Inspector URL it prints, then configure a **stdio** connection:
+## Tests (for judges: no API keys needed)
 
-| Field | Value |
+Each phase test starts its own stdio server against a temporary copy of the
+seeded state, so the tracked JSON files are never modified.
+
+```powershell
+.\.venv\Scripts\python.exe tests\phase1_smoke_test.py
+.\.venv\Scripts\python.exe tests\phase2_home_tools_test.py
+.\.venv\Scripts\python.exe tests\phase3_context_tools_test.py
+.\.venv\Scripts\python.exe tests\phase4_primitives_test.py
+```
+
+The HTTP check needs the server running (see Run):
+
+```powershell
+.\.venv\Scripts\python.exe tests\http_smoke_test.py
+```
+
+It asserts the negotiated protocol version is `2025-11-25` or later.
+
+## What is simulated
+
+| Area | Status |
 | --- | --- |
-| Command | `C:\Users\rakes\Desktop\Practice-Dump\Smart-Home-Alexa\.venv\Scripts\python.exe` |
-| Arguments | `C:\Users\rakes\Desktop\Practice-Dump\Smart-Home-Alexa\server\server.py` |
+| MCP server, tools, approvals, ranking, action log | Real code, runs locally |
+| Ride providers (QuickRide, RideCo, CityCab) | Simulated, labeled `verity.simulated.*` |
+| Delivery providers (DashMart, QuickMart, FoodDash, ShopNest, MegaShop) | Simulated |
+| Home devices, occupancy, Housebot robot | Simulated virtual home |
+| Travel and assessment reads | Mocked |
+| Alexa+ voice surface | Simulated host; generic browser voice, not an Alexa voice |
+| AWS services | **Not called at runtime in the default demo.** Bedrock is implemented as an optional provider and has not been run live |
 
-Connect, open **Tools**, and call `get_home_state` with no arguments. The
-result must match `server/state/home_state.json` exactly.
+## Repository layout
 
-Call every listed tool independently before moving to Phase 3. For the trust
-failure check, call `set_device_state` with `home.unknown.light.01` and `off`;
-the result must include `success: false`, `reason: device_not_found`, and
-`confirmed_state: null`.
-
-### Optional local smoke test
-
-This automatically verifies stdio initialization, tool discovery, and the
-tool call. It complements, but does not replace, the visual Inspector check.
-
-```powershell
-.\.venv\Scripts\python.exe .\tests\phase1_smoke_test.py
-.\.venv\Scripts\python.exe .\tests\phase2_home_tools_test.py
+```text
+server/      MCP server, tools, services, state
+simulator/   browser host and LLM tool-selection loop
+skills/      Agent Skill instructions
+tests/       MCP and HTTP verification
+docs/        architecture, AWS plan, checklist, demo and submission notes
 ```
 
-To verify the HTTP endpoint after starting `http_server.py`:
+## License
 
-```powershell
-.\.venv\Scripts\python.exe .\tests\http_smoke_test.py
-```
-
-
+MIT. See [LICENSE](LICENSE). Third-party notices are in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
