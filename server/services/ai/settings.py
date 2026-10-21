@@ -34,5 +34,5 @@ class AISettings:
             groq_model=os.getenv("GROQ_MODEL", "openai/gpt-oss-20b"),
             aws_region=os.getenv("AWS_REGION", "ap-southeast-2"),
             aws_profile=os.getenv("AWS_PROFILE") or None,
-            bedrock_model_id=os.getenv("BEDROCK_MODEL_ID", "amazon.nova-2-lite-v1:0"),
+            bedrock_model_id=os.getenv("BEDROCK_MODEL_ID", "global.amazon.nova-2-lite-v1:0"),
         )

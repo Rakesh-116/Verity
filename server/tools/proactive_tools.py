@@ -85,8 +85,8 @@ def execute_energy_saving_proposal(person_id: str, proposal_id: str) -> dict[str
     eligible = {item["device_id"]: item for item in _opportunities()}
     stale = sorted(requested - set(eligible))
     if stale:
-        # The proposal is recorded as executed by the approval store, so do not
-        # mutate home state after detecting that its underlying state went stale.
+        # The proposal stays "approved" (never consumed as executed), so it remains
+        # inspectable; home state is not mutated once staleness is detected.
         result = {"person_id": person_id, "proposal_id": proposal_id, "success": False, "reason": "stale_proposal", "stale_device_ids": stale}
         append_action_log(person_id, "proactive", "Refused stale energy-saving proposal.", result)
         return result
