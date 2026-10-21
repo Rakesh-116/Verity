@@ -17,6 +17,7 @@ from openai import OpenAI
 from services.ai.settings import AISettings
 
 from simulator.mcp_gateway import MCPGateway, as_bedrock_tools, as_openai_tools, json_text
+from simulator.narration import describe_call, describe_doing
 
 
 SKILL_PATH = PROJECT_DIRECTORY / "skills" / "verity" / "SKILL.md"
@@ -31,6 +32,24 @@ class AgentHost:
         # This is deliberately short-lived simulator conversation context, not
         # persistent user memory. Durable preferences remain MCP-owned JSON state.
         self._session_history: dict[str, list[dict[str, str]]] = {}
+        # Live, plain-English progress per browser session; the UI polls it while a turn runs.
+        self._progress: dict[str, dict[str, Any]] = {}
+
+    def progress(self, session_id: str | None) -> dict[str, Any]:
+        """What Verity is doing right now for this session, in plain words."""
+        state = self._progress.get(session_id or "local", {"busy": False, "current": "", "steps": []})
+        return {"busy": state["busy"], "current": state["current"], "steps": list(state["steps"])}
+
+    async def rides(self) -> dict[str, Any]:
+        """Ride request cards, read through MCP like the rest of the dashboard."""
+        result = await self._gateway.call_tool("list_ride_hedges", {})
+        if result["is_error"]:
+            raise RuntimeError(f"list_ride_hedges failed: {result['output']}")
+        return result["output"]
+
+    @staticmethod
+    def _add_step(progress: dict[str, Any], text: str, ok: bool) -> None:
+        progress["steps"].append({"text": text, "ok": ok})
 
     async def dashboard_state(self) -> dict[str, Any]:
         """Read render-only household state through the same MCP client."""
@@ -73,9 +92,12 @@ class AgentHost:
 
         history_key = self._history_key(session_id, active_speaker_id)
         history = list(self._session_history.get(history_key, []))
+        progress_key = session_id or "local"
+        progress = {"busy": True, "current": "Thinking about what you asked…", "steps": []}
+        self._progress[progress_key] = progress
         try:
             result = await asyncio.to_thread(
-                self._run_llm_loop, text, mcp_tools, active_speaker_id, trace, history
+                self._run_llm_loop, text, mcp_tools, active_speaker_id, trace, history, progress
             )
             self._remember_exchange(history_key, text, result["speech"])
             return result
@@ -89,6 +111,9 @@ class AgentHost:
                 "speech": "The simulator could not complete that request.",
                 "trace": [{"kind": "agent_error", "detail": str(error)}],
             }
+        finally:
+            progress["busy"] = False
+            progress["current"] = ""
 
     def _run_llm_loop(
         self,
@@ -97,11 +122,12 @@ class AgentHost:
         active_speaker_id: str | None,
         trace: list[dict[str, Any]],
         history: list[dict[str, str]],
+        progress: dict[str, Any],
     ) -> dict[str, Any]:
         settings = AISettings.from_environment()
         if settings.provider == "bedrock":
             return self._run_bedrock_loop(
-                settings, text, mcp_tools, active_speaker_id, trace, history
+                settings, text, mcp_tools, active_speaker_id, trace, history, progress
             )
 
         client, model = self._client_for(settings)
@@ -136,13 +162,18 @@ class AgentHost:
             messages.append(self._assistant_message(message))
             for call in tool_calls:
                 arguments = json.loads(call.function.arguments or "{}")
+                progress["current"] = describe_doing(call.function.name, arguments)
                 result = asyncio.run(self._gateway.call_tool(call.function.name, arguments))
+                narrated = describe_call(call.function.name, arguments, result)
+                self._add_step(progress, narrated["text"], narrated["ok"])
                 trace.append(
                     {
                         "kind": "tool",
                         "name": call.function.name,
                         "arguments": arguments,
                         "result": result,
+                        "say": narrated["text"],
+                        "ok": narrated["ok"],
                     }
                 )
                 messages.append(
@@ -162,6 +193,7 @@ class AgentHost:
         active_speaker_id: str | None,
         trace: list[dict[str, Any]],
         history: list[dict[str, str]],
+        progress: dict[str, Any],
     ) -> dict[str, Any]:
         """Run Verity's existing MCP loop through Bedrock Converse tool use."""
         import boto3
@@ -222,9 +254,12 @@ class AgentHost:
                         "output": {"reason": "invalid_tool_request"},
                     }
                 else:
+                    progress["current"] = describe_doing(name, arguments)
                     result = asyncio.run(self._gateway.call_tool(name, arguments))
+                narrated = describe_call(name, arguments, result)
+                self._add_step(progress, narrated["text"], narrated["ok"])
                 trace.append(
-                    {"kind": "tool", "name": name, "arguments": arguments, "result": result}
+                    {"kind": "tool", "name": name, "arguments": arguments, "result": result, "say": narrated["text"], "ok": narrated["ok"]}
                 )
                 tool_result: dict[str, Any] = {
                     "toolUseId": tool_use["toolUseId"],

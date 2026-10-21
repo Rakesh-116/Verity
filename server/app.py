@@ -35,6 +35,7 @@ from tools.hedge_tools import (
     approve_ride_hedge,
     create_ride_hedge_proposal,
     get_ride_hedge_status,
+    list_ride_hedges,
     start_ride_hedge,
 )
 from tools.routine_tools import get_routines
@@ -83,6 +84,7 @@ for tool in (
     approve_ride_hedge,
     start_ride_hedge,
     get_ride_hedge_status,
+    list_ride_hedges,
     get_routines,
 ):
     mcp.tool()(tool)

@@ -80,8 +80,8 @@ def test_default_scenario_commits_to_faster_driver_and_recovers() -> None:
     assert view["committed"]["platform"] == "citycab", view
     assert _states(view)["quickride#1"] == "cancelled", view
     assert view["fees_inr"] == 15, view
-    assert any("Committed to CityCab" in line for line in view["explanation"]), view["explanation"]
-    assert any("cancellation fee of 15 INR" in line for line in view["explanation"]), view["explanation"]
+    assert any("Chose CityCab" in line for line in view["explanation"]), view["explanation"]
+    assert any("₹15 cancellation fee" in line for line in view["explanation"]), view["explanation"]
 
     # Repeated status reads must not repeat the commit or the fee.
     for _ in range(3):
@@ -101,6 +101,21 @@ def test_default_scenario_commits_to_faster_driver_and_recovers() -> None:
     assert view["status"] == "committed" and view["committed"]["platform"] == "citycab" and view["committed"]["round"] == 2, view
     assert view["fees_inr"] == 30, view
     assert "failure_reason" in view and view["failure_reason"] is None, view
+
+
+def test_late_poll_gives_same_decision_as_early_poll() -> None:
+    """A status check at 25 s must still commit to the 8 s decision, not to whatever is accepted at 25 s."""
+    _reset_scenario()
+    clock = ManualClock(6000.0)
+    set_clock(clock)
+    hedge_id = _approved_hedge(clock)
+    clock.advance(25)
+    view = get_ride_hedge_status(hedge_id)
+    committed_events = [e for e in view["events"] if e["event"] == "committed"]
+    assert committed_events and committed_events[0]["driver"] == "Suresh", view["events"]
+    assert view["fees_inr"] == 15, view
+    assert view["round"] == 2 and view["status"] == "searching", view
+    assert any("Chose CityCab" in line for line in view["explanation"]), view["explanation"]
 
 
 def test_all_drivers_cancel_reports_specific_failure() -> None:
@@ -178,6 +193,7 @@ def test_routines_counts_confidence_and_unknown_member() -> None:
 
 if __name__ == "__main__":
     test_default_scenario_commits_to_faster_driver_and_recovers()
+    test_late_poll_gives_same_decision_as_early_poll()
     test_all_drivers_cancel_reports_specific_failure()
     test_no_accept_times_out_without_substitution()
     test_start_is_refused_without_approval_or_when_repeated()

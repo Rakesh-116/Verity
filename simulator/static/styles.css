@@ -27,3 +27,47 @@ main { max-width: 1280px; margin: auto; } .topbar { display:flex; justify-conten
 .proactive-status { right:8px; top:32px; color:#e9c46a; background:#2a2519e8; }
 .event-panel { height:580px; }
 @media (max-width:900px) { .house { height:520px; } .event-panel { height:480px; } }
+
+
+/* Live ride desk, agent status, avatars, and plain-English steps */
+.avatar { width: 32px; height: 32px; flex: 0 0 32px; border-radius: 6px; background-color: #132033; background-repeat: no-repeat; background-size: 224px 192px; background-position: -32px 0; image-rendering: pixelated; border: 1px solid #2c3f5c; display: inline-flex; align-items: center; justify-content: center; }
+.avatar.verity-mark { background-image: none; background-color: #1d6b62; color: #e9fff9; font-weight: 700; font-size: 15px; }
+.message { display: flex; gap: 8px; align-items: flex-start; }
+.message > div { display: flex; flex-direction: column; gap: 2px; }
+.agent-status { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border: 1px solid #22344e; border-radius: 8px; background: #0e1828; }
+.agent-line { display: flex; flex-direction: column; font-size: 14px; }
+.ride-desk .section-heading span, #steps-heading + span, #ride-count { color: #8fb3d9; font-size: 12px; }
+.rides { display: flex; flex-direction: column; gap: 10px; }
+.empty-hint, .steps .muted { color: #8fa3bd; font-size: 13px; margin: 4px 0; }
+.ride-card { border: 1px solid #2c4a6e; border-radius: 10px; padding: 10px 12px; background: #0f1b2c; display: flex; flex-direction: column; gap: 8px; }
+.ride-card header { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+.ride-title { font-weight: 700; font-size: 15px; }
+.badge { font-size: 11px; letter-spacing: .08em; padding: 2px 6px; border-radius: 4px; border: 1px solid #5b7fa8; color: #bcd6f2; }
+.ride-status { font-size: 14px; color: #e7f0fb; }
+.platforms { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.platform { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; padding: 6px 8px; border-radius: 6px; background: #13233a; border-left: 4px solid #5b7fa8; font-size: 13px; }
+.platform b { font-size: 14px; }
+.platform em { font-style: normal; font-size: 12px; text-align: right; }
+.platform .line { grid-column: 1 / -1; color: #b8cde6; }
+.platform.chosen { border-left-color: #6be5b0; }
+.platform.cancelled { border-left-color: #e0785b; opacity: .85; }
+.platform.searching { border-left-color: #f2c14e; }
+.why { font-size: 13px; color: #cfe0f3; }
+.why ol { margin: 6px 0 0 18px; padding: 0; }
+.why li { margin: 3px 0; }
+.ride-foot { font-size: 12px; color: #8fa3bd; display: flex; justify-content: space-between; }
+.banner.failed { border: 1px solid #e0785b; background: #2a1712; color: #ffd9cc; padding: 8px; border-radius: 6px; font-size: 13px; }
+.steps { margin: 0; padding-left: 22px; font-size: 13px; display: flex; flex-direction: column; gap: 4px; }
+.steps .ok::marker { color: #6be5b0; }
+.steps .fail { color: #ffb4a0; }
+.technical { margin-top: 8px; font-size: 12px; color: #8fa3bd; }
+.technical pre { max-height: 220px; overflow: auto; }
+
+/* Right panel: grow with content; the ride list and conversation scroll inside their own areas. */
+.event-panel { display: flex !important; flex-direction: column; grid-template-rows: none !important; height: auto !important; min-height: 650px; overflow: visible !important; }
+.event-panel .activity-section { overflow: visible; }
+.event-panel .ride-desk { max-height: 460px; overflow-y: auto; }
+.event-panel .conversation-section { max-height: 260px; }
+.event-panel .conversation { max-height: 170px; overflow-y: auto; }
+.steps-section li.muted { list-style: none; margin-left: -22px; }
+.ride-desk .section-heading { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; }

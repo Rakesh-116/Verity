@@ -1,5 +1,6 @@
 """Local Streamable HTTP entry point used by the Verity simulator."""
 
+import os
 import sys
 from pathlib import Path
 
@@ -15,4 +16,6 @@ from app import mcp
 if __name__ == "__main__":
     # FastMCP defaults to 127.0.0.1:8000 and /mcp. Keep this local-only until
     # the dedicated transport-hardening checkpoint.
+    # VERITY_MCP_PORT lets a second copy run beside another instance (default 8000).
+    mcp.settings.port = int(os.getenv("VERITY_MCP_PORT", "8000"))
     mcp.run(transport="streamable-http")

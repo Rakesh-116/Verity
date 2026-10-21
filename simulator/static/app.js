@@ -76,7 +76,25 @@ async function refreshState() {
   } catch (error) { status.textContent = "MCP state unavailable"; }
 }
 
-function addMessage(kind, who, text) { const item = document.createElement("div"); item.className = `message ${kind}`; item.innerHTML = `<b>${who}</b><span></span>`; item.querySelector("span").textContent = text; conversation.appendChild(item); conversation.scrollTop = conversation.scrollHeight; }
+const AVATAR_SPRITES = { son: "char_0", amma: "char_1", papa: "char_3", sister: "char_4" };
+function avatarFor(personId) {
+  const avatar = document.createElement("span");
+  if (personId && AVATAR_SPRITES[personId]) {
+    avatar.className = "avatar";
+    avatar.style.backgroundImage = `url(/assets/pixel-agents/characters/${AVATAR_SPRITES[personId]}.png)`;
+  } else {
+    avatar.className = "avatar verity-mark";
+    avatar.textContent = "V";
+  }
+  avatar.setAttribute("aria-hidden", "true");
+  return avatar;
+}
+function addMessage(kind, who, text, personId = null) {
+  const item = document.createElement("div"); item.className = `message ${kind}`;
+  const body = document.createElement("div"); const name = document.createElement("b"); name.textContent = who;
+  const span = document.createElement("span"); span.textContent = text; body.append(name, span);
+  item.append(avatarFor(personId), body); conversation.appendChild(item); conversation.scrollTop = conversation.scrollHeight;
+}
 function speak(text) { if (!window.speechSynthesis) return; window.speechSynthesis.cancel(); window.speechSynthesis.speak(new SpeechSynthesisUtterance(text)); }
 
 function plainSpeech(text) {
@@ -129,15 +147,15 @@ async function processNextTurn() {
 
 async function ask(rawText, personId = speaker.value) {
   const text = rawText.replace(/^alexa[, ]*/i, "").trim(); if (!text) return;
-  addMessage("user", PEOPLE[personId].label, text); characters[personId].status = "busy"; renderCharacters(); status.textContent = "Agent is choosing tools…";
+  addMessage("user", PEOPLE[personId].label, text, personId); startProgress(); characters[personId].status = "busy"; renderCharacters(); status.textContent = "Agent is choosing tools…";
   try {
     const response = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ session_id: sessionId, person_id: personId, text }) });
     const result = await response.json(); if (!response.ok) throw new Error(result.error || "Request failed");
     const failed = result.trace.some((event) => event.kind === "tool" && event.result.output && event.result.output.success === false);
     const spokenResponse = plainSpeech(result.speech);
-    characters[personId].status = failed ? "alert" : "idle"; renderCharacters(); addMessage("assistant", "Verity", spokenResponse); trace.textContent = JSON.stringify(result.trace, null, 2); traceStatus.textContent = `${result.trace.length} event${result.trace.length === 1 ? "" : "s"}`; speak(spokenResponse); await refreshState();
+    characters[personId].status = failed ? "alert" : "idle"; renderCharacters(); addMessage("assistant", "Verity", spokenResponse); trace.textContent = JSON.stringify(result.trace, null, 2); renderSteps(result.trace); traceStatus.textContent = `${result.trace.length} event${result.trace.length === 1 ? "" : "s"}`; speak(spokenResponse); await refreshState();
   } catch (error) { characters[personId].status = "alert"; renderCharacters(); addMessage("assistant", "Verity", "The simulated host could not complete that request."); trace.textContent = String(error); traceStatus.textContent = "Error"; status.textContent = "Error"; }
-  finally { prompt.focus(); }
+  finally { stopProgress(); prompt.focus(); }
 }
 
 form.addEventListener("submit", (event) => { event.preventDefault(); enqueueAsk(prompt.value); prompt.value = ""; });
@@ -159,4 +177,83 @@ const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecogni
 if (!SpeechRecognition) mic.disabled = true;
 else { const recognition = new SpeechRecognition(); recognition.lang = "en-IN"; recognition.interimResults = true; recognition.onresult = (event) => { const text = Array.from(event.results).map((result) => result[0].transcript).join(""); prompt.value = text; if (event.results[event.results.length - 1].isFinal) { enqueueAsk(text); prompt.value = ""; } }; mic.addEventListener("click", () => recognition.start()); }
 
+// Live status line: polls what Verity is doing right now, in plain words.
+let progressTimer = null;
+const IDLE_AGENT_TEXT = "Ready. Ask for something, or try the time tick.";
+function startProgress() {
+  document.querySelector("#agent-now").textContent = "Thinking about what you asked…";
+  clearInterval(progressTimer); progressTimer = setInterval(pollProgress, 500);
+}
+async function pollProgress() {
+  try {
+    const response = await fetch(`/api/progress?session_id=${encodeURIComponent(sessionId)}`);
+    const data = await response.json();
+    if (data.current) document.querySelector("#agent-now").textContent = data.current;
+  } catch (error) { /* the next poll will try again */ }
+}
+function stopProgress() {
+  clearInterval(progressTimer); progressTimer = null;
+  document.querySelector("#agent-now").textContent = IDLE_AGENT_TEXT;
+}
+
+// "What Verity did": one plain sentence per tool call, from the finished turn.
+function renderSteps(traceEvents) {
+  const list = document.querySelector("#steps"); list.replaceChildren();
+  const steps = traceEvents.filter((event) => event.kind === "tool" && event.say);
+  if (!steps.length) {
+    const item = document.createElement("li"); item.className = "muted"; item.textContent = "No tool steps in this request."; list.append(item); return;
+  }
+  steps.forEach((step) => {
+    const item = document.createElement("li"); item.className = step.ok ? "ok" : "fail";
+    item.textContent = (step.ok ? "" : "✗ ") + step.say; list.append(item);
+  });
+  document.querySelector("#trace-status").textContent = `${steps.length} step${steps.length === 1 ? "" : "s"}`;
+}
+
+// Ride desk: one card per ride request, polled once a second. Text is set with textContent only.
+function el(tag, className, text) {
+  const node = document.createElement(tag); if (className) node.className = className;
+  if (text !== undefined) node.textContent = text; return node;
+}
+function rideCard(hedge) {
+  const card = el("article", "ride-card");
+  const head = el("header"); head.append(el("span", "ride-title", hedge.headline), el("span", "badge", "SIMULATED"));
+  card.append(head);
+  if (hedge.status === "failed") card.append(el("div", "banner failed", hedge.plain_status));
+  else card.append(el("p", "ride-status", hedge.plain_status));
+
+  const list = el("ul", "platforms");
+  // Show the current round only; earlier rounds are described in "What happened".
+  hedge.rides.filter((ride) => ride.round === hedge.round).forEach((ride) => {
+    const chosen = hedge.committed && hedge.committed.ride_id === ride.ride_id;
+    const kind = chosen ? "chosen" : ride.state === "cancelled" ? "cancelled" : ride.state === "searching" ? "searching" : "";
+    const label = chosen ? "Chosen" : ride.state === "cancelled" ? "Cancelled" : ride.state === "accepted" ? "Driver found" : "Waiting";
+    const item = el("li", `platform ${kind}`.trim());
+    item.append(el("b", null, ride.label), el("em", null, label), el("span", "line", ride.line));
+    list.append(item);
+  });
+  card.append(list);
+
+  if (hedge.explanation && hedge.explanation.length) {
+    const why = el("details", "why"); why.open = true; why.append(el("summary", null, "What happened"));
+    const steps = el("ol"); hedge.explanation.forEach((line) => steps.append(el("li", null, line)));
+    why.append(steps); card.append(why);
+  }
+  card.append(el("div", "ride-foot", `Cancellation fees so far: ₹${hedge.fees_inr} (simulated)`));
+  return card;
+}
+function renderRides(hedges) {
+  const box = document.querySelector("#rides");
+  document.querySelector("#ride-count").textContent = hedges.length ? `${hedges.length} request${hedges.length === 1 ? "" : "s"}` : "None yet";
+  if (!hedges.length) { box.replaceChildren(el("p", "empty-hint", "No ride requests yet. Try “Get me a ride to the office.”")); return; }
+  box.replaceChildren(...hedges.map(rideCard));
+}
+async function refreshRides() {
+  try {
+    const response = await fetch("/api/rides"); const data = await response.json();
+    if (response.ok) renderRides(data.hedges || []);
+  } catch (error) { /* keep the last view; the status line shows connection problems */ }
+}
+
 renderCharacters(); refreshState(); setInterval(refreshState, 2500);
+refreshRides(); setInterval(refreshRides, 1000);

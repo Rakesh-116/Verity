@@ -46,8 +46,23 @@ async def state(_: Request) -> JSONResponse:
         return JSONResponse({"error": str(error)}, status_code=503)
 
 
+async def progress(request: Request) -> JSONResponse:
+    """Plain-English live progress for the current turn; polled by the UI while it runs."""
+    return JSONResponse(host.progress(request.query_params.get("session_id")))
+
+
+async def rides(_: Request) -> JSONResponse:
+    """Ride request cards, read through MCP."""
+    try:
+        return JSONResponse(await host.rides())
+    except Exception as error:
+        return JSONResponse({"error": str(error)}, status_code=503)
+
+
 routes = [
     Route("/api/chat", chat, methods=["POST"]),
+    Route("/api/progress", progress, methods=["GET"]),
+    Route("/api/rides", rides, methods=["GET"]),
     Route("/api/health", health, methods=["GET"]),
     Route("/api/state", state, methods=["GET"]),
 ]

@@ -1,6 +1,6 @@
 # Ride booking UI — requirements (draft for review)
 
-Status: **requirements only, nothing built yet.** Order of work:
+Status: **implemented on 2026-10-21, verified in headless Chrome** (see the status table in section 10). Original plan:
 1. Local end-to-end with a real LLM works (the demo script runs three times).
 2. This UI (must-haves first).
 3. Freeze and record.
@@ -163,3 +163,50 @@ requires. Do not claim AWS usage unless a live call is captured.
 Must-haves M1–M8 plus the `list_ride_hedges` tool are a day of work,
 alongside the LLM runs and the recording. Build M1–M4 and M7 first, which
 covers the core judge story. S1 and C1 are cuts if time runs short.
+
+## 10. Implementation status (2026-10-21)
+
+Two platforms only, as decided. Research notes are in the commit message and
+in section 11.
+
+| Item | Status | Evidence |
+| --- | --- | --- |
+| M1 hedge card with headline and fee total | done | `.ride-card` in `simulator/static/app.js`; headline from `list_ride_hedges` |
+| M2 platform rows, SIMULATED badge, driver, ETA, fare, cancel reason | done | Headless Chrome run: `QuickRide Cancelled` / `CityCab Chosen` rows |
+| M3 real-time updates | done | `/api/rides` polled every second; a fresh hedge moved from "Waiting" to "Driver found" without a reload |
+| M4 decision log | done | "What happened" list, plain sentences |
+| M5 honest labels | done | SIMULATED badge; "Chosen", never "Booked" |
+| M6 failure banners | partly | Banner code exists; the failed state was not shown in the browser |
+| M7 readable trace | done | "What Verity did" with one sentence per call; raw JSON under Technical details |
+| M8 deterministic demo | done | Seeded `ride_scenarios.json`; real-clock run matches the test timeline |
+| S1 timeline strip | not done | Cut for time |
+| S2 fee callout | done | Fee in the decision log and footer |
+| S3 chat to panel link | done | A new hedge appears on the next one-second poll |
+| C1 character status tie-in | not done | Cut for time |
+| Avatars on chat messages | done | Speaker sprite (from the house sheet); Verity uses a plain "V" mark |
+| Live "what Verity is doing" line | done | `/api/progress` polled while a turn runs; set per tool call (not browser-tested with a real model) |
+
+Also done: `list_ride_hedges` tool (MCP, 34 tools total), decisions judged as
+of the moment they are due (a late poll gives the same answer as an early one),
+and an isolated test for that.
+
+## 11. What the internet search showed (for the UI design)
+
+- Riders compare ETA and price side by side, and many use more than one app.
+  One student case study reports over 80% of riders using multiple apps, from a
+  small survey: [NextLeap case study](https://assets.nextleap.app/submissions/NLOLA-27a6c6de-2f72-45e1-b409-f1143126b0be.pdf).
+- Cancelling after accept is the main complaint. Regulators in India warned
+  platforms about it: [Deccan Herald](https://www.deccanherald.com/amp/story/business%2Fgovt-warns-cab-aggregators-of-strict-action-for-unfair-trade-practices-1108034.html).
+  Malaysian drivers describe auto-accept and cancellation warnings: [The Sun](https://thesun.my/local_news/requests-to-cancel-e-hailing-rides-irk-passengers-PB11985802).
+- Uber's developer docs describe re-dispatch after a driver cancels:
+  [Uber developer docs](https://developer.uber.com/docs/guest-rides/guest-ride-api-build-guide/dispatch-and-cancellation).
+- Comparison apps show options in one place, with price and pickup time, and
+  one-tap handoff: [Hackney listing](https://mwm.ai/apps/hackney-compare-rideshares/6754620049),
+  [Bliq listing](https://apps.apple.com/us/app/bliq-compare-save-on-rides/id6448750981?uo=4).
+- Caveat: the Maharashtra penalty figure came from a forum aggregator. Check the
+  rule text before quoting it. Many search results were scraped or spam pages
+  and were excluded.
+
+Design takeaways applied: one card per request, one row per platform with ETA
+and fare, the fee shown before it is charged, the choice explained in plain
+words, and the driver-cancel case shown as a visible recovery.

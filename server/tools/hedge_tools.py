@@ -81,17 +81,17 @@ def _request_round(hedge: dict[str, Any], scenario: dict[str, Any], now: float) 
     hedge["events"].append({"event": "round_started", "round": hedge["round"], "platforms": hedge["platforms"]})
 
 
-def _cancel_ride_by_user(hedge: dict[str, Any], ride: dict[str, Any], scenario: dict[str, Any], now: float) -> None:
-    """Cancel a non-committed ride once; a fee applies only if its driver had accepted."""
+def _cancel_ride_by_user(hedge: dict[str, Any], ride: dict[str, Any], scenario: dict[str, Any], at: float) -> None:
+    """Cancel a non-committed ride once; a fee applies only if its driver had accepted by then."""
     config = scenario["platforms"][ride["platform"]]
-    accepted = _ride_state(ride, config, now)["state"] == "accepted"
+    accepted = _ride_state(ride, config, at)["state"] == "accepted"
     fee = config["cancellation_fee_inr"] if accepted else 0
     ride["user_cancelled"] = True
     hedge["fees_inr"] += fee
     hedge["events"].append({"event": "cancelled_other", "ride_id": ride["ride_id"], "fee_inr": fee})
     hedge["explanation"].append(
-        f"Cancelled {config['display_name']} ride {ride['ride_id']} after the commit."
-        + (f" A cancellation fee of {fee} INR applies because its driver had already accepted." if fee else " No fee; its driver had not accepted yet.")
+        f"Cancelled {config['display_name']} after choosing the other ride."
+        + (f" A ₹{fee} cancellation fee applies because its driver had already accepted." if fee else " No fee: its driver had not accepted yet.")
     )
 
 
@@ -116,31 +116,56 @@ def _accepted_candidates(hedge: dict[str, Any], scenario: dict[str, Any], now: f
     return candidates
 
 
+def _decision_time(hedge: dict[str, Any], scenario: dict[str, Any], current: list[dict[str, Any]]) -> float | None:
+    """When the commit decision becomes due, independent of when anyone polls.
+
+    All rides accepted, or the decision window ended with at least one accept.
+    Returns None when no ride can ever accept.
+    """
+    policy = scenario["hedge_policy"]
+    accept_times = [r["requested_at"] + scenario["platforms"][r["platform"]]["accept_after_seconds"] for r in current]
+    if not accept_times or min(accept_times) == float("inf"):
+        return None
+    window_end = hedge["round_started_at"] + policy["decision_window_seconds"]
+    if max(accept_times) <= window_end:
+        return max(accept_times)
+    return max(window_end, min(accept_times))
+
+
 def _advance(hedge: dict[str, Any], scenario: dict[str, Any], now: float) -> None:
-    """Apply the hedge rules to the current simulated time. Idempotent: each step runs once."""
-    if hedge["status"] in {"failed"}:
+    """Apply the hedge rules up to the current simulated time.
+
+    Decisions are evaluated as of the moment they become due, so a late poll
+    gives the same answer as an early one. Idempotent: each step runs once.
+    """
+    if hedge["status"] == "failed":
         return
     _record_observations(hedge, scenario, now)
     policy = scenario["hedge_policy"]
     current = [ride for ride in hedge["rides"] if ride["round"] == hedge["round"]]
 
     if hedge["committed_ride_id"] is None:
-        accepted = _accepted_candidates(hedge, scenario, now, current)
-        all_accepted = all(_ride_state(r, scenario["platforms"][r["platform"]], now)["state"] == "accepted" for r in current)
-        window_over = now - hedge["round_started_at"] >= policy["decision_window_seconds"]
-        if accepted and (all_accepted or window_over):
-            winner = min(accepted, key=lambda r: (_ride_state(r, scenario["platforms"][r["platform"]], now)["eta_minutes"], _ride_state(r, scenario["platforms"][r["platform"]], now)["fare_inr"]))
-            wv = _ride_state(winner, scenario["platforms"][winner["platform"]], now)
-            others = [r for r in current if r is not winner]
-            trigger = "all platforms accepted" if all_accepted else f"the {policy['decision_window_seconds']}s decision window ended"
-            _commit(hedge, winner, scenario, now, (
-                f"Committed to {scenario['platforms'][winner['platform']]['display_name']} (ETA {wv['eta_minutes']} min, fare {wv['fare_inr']} INR): "
-                f"lowest ETA among accepted rides, decided because {trigger}."
-            ))
-            for other in others:
-                if not other.get("user_cancelled") and _ride_state(other, scenario["platforms"][other["platform"]], now)["state"] != "cancelled":
-                    _cancel_ride_by_user(hedge, other, scenario, now)
-        elif not accepted and now - hedge["round_started_at"] >= policy["request_timeout_seconds"]:
+        decision_at = _decision_time(hedge, scenario, current)
+        if decision_at is not None and decision_at <= now:
+            accepted = _accepted_candidates(hedge, scenario, decision_at, current)
+            if accepted:
+                winner = min(accepted, key=lambda r: (_ride_state(r, scenario["platforms"][r["platform"]], decision_at)["eta_minutes"], _ride_state(r, scenario["platforms"][r["platform"]], decision_at)["fare_inr"]))
+                all_accepted = all(_ride_state(r, scenario["platforms"][r["platform"]], decision_at)["state"] == "accepted" for r in current)
+                trigger = "both apps accepted" if all_accepted else f"the {policy['decision_window_seconds']}-second wait ended"
+                wv = _ride_state(winner, scenario["platforms"][winner["platform"]], decision_at)
+                _commit(hedge, winner, scenario, decision_at, (
+                    f"Chose {scenario['platforms'][winner['platform']]['display_name']} (ETA {wv['eta_minutes']} min, ₹{wv['fare_inr']}): "
+                    f"the fastest accepted ride, decided because {trigger}."
+                ))
+                for other in current:
+                    if other is winner or other.get("user_cancelled"):
+                        continue
+                    if _ride_state(other, scenario["platforms"][other["platform"]], now)["state"] != "cancelled":
+                        _cancel_ride_by_user(hedge, other, scenario, decision_at)
+                # The committed driver may already have cancelled by now; handle that in this same call.
+                _advance(hedge, scenario, now)
+                return
+        if now - hedge["round_started_at"] >= policy["request_timeout_seconds"]:
             hedge["status"] = "failed"
             hedge["failure_reason"] = "no_driver_accepted"
             hedge["explanation"].append("No platform accepted within the request timeout. Nothing was committed or cancelled.")
@@ -148,24 +173,27 @@ def _advance(hedge: dict[str, Any], scenario: dict[str, Any], now: float) -> Non
         return
 
     committed = next(r for r in hedge["rides"] if r["ride_id"] == hedge["committed_ride_id"])
-    view = _ride_state(committed, scenario["platforms"][committed["platform"]], now)
+    config = scenario["platforms"][committed["platform"]]
+    view = _ride_state(committed, config, now)
     if view["state"] != "cancelled" or view["by"] != "driver":
         hedge["status"] = "committed"
         return
 
-    name = scenario["platforms"][committed["platform"]]["display_name"]
+    # The fallback is judged as of the moment the driver cancelled.
+    cancel_at = committed["requested_at"] + config["driver_cancels_after_seconds"]
+    name = config["display_name"]
     hedge["committed_ride_id"] = None
-    hedge["explanation"].append(f"The committed {name} driver cancelled. Looking for another accepted ride in this round.")
-    fallback = [r for r in _accepted_candidates(hedge, scenario, now, current) if r["ride_id"] != committed["ride_id"]]
+    hedge["explanation"].append(f"{name}'s driver cancelled. Looking for another accepted ride.")
+    fallback = [r for r in _accepted_candidates(hedge, scenario, cancel_at, current) if r["ride_id"] != committed["ride_id"]]
     if fallback:
-        ride = min(fallback, key=lambda r: _ride_state(r, scenario["platforms"][r["platform"]], now)["eta_minutes"])
-        _commit(hedge, ride, scenario, now, f"Fell back to {scenario['platforms'][ride['platform']]['display_name']}, which was still accepted.")
+        ride = min(fallback, key=lambda r: _ride_state(r, scenario["platforms"][r["platform"]], cancel_at)["eta_minutes"])
+        _commit(hedge, ride, scenario, cancel_at, f"Fell back to {scenario['platforms'][ride['platform']]['display_name']}, which was still accepted.")
         hedge["status"] = "committed"
     elif hedge["round"] < policy["max_rounds"]:
         hedge["round"] += 1
         hedge["status"] = "searching"
-        _request_round(hedge, scenario, now)
-        hedge["explanation"].append(f"No other accepted ride was left. Re-requested on both platforms (round {hedge['round']}).")
+        _request_round(hedge, scenario, cancel_at)
+        hedge["explanation"].append(f"No other accepted ride was left. Asked both apps again (round {hedge['round']}).")
     else:
         hedge["status"] = "failed"
         hedge["failure_reason"] = "all_drivers_cancelled"
@@ -173,17 +201,80 @@ def _advance(hedge: dict[str, Any], scenario: dict[str, Any], now: float) -> Non
         hedge["events"].append({"event": "failed", "reason": "all_drivers_cancelled"})
 
 
+REASON_TEXT = {
+    "no_driver_accepted": "No driver accepted within the time limit. Nothing was chosen or cancelled.",
+    "all_drivers_cancelled": "Both drivers cancelled and the retry limit was reached. Nothing else was booked.",
+}
+
+
+def _plain_status(hedge: dict[str, Any], rides: list[dict[str, Any]]) -> str:
+    """One plain sentence describing where the ride request stands right now."""
+    names = {p: _platform_name(p) for p in hedge["platforms"]}
+    if hedge["status"] == "failed":
+        return REASON_TEXT.get(hedge["failure_reason"], "The ride request failed.")
+    if hedge["status"] == "committed":
+        committed = next((r for r in rides if r["ride_id"] == hedge["committed_ride_id"]), None)
+        if committed and committed["state"] == "accepted":
+            return f"Ride chosen with {committed['label']}: driver {committed['driver']} arrives in {committed['eta_minutes']} min for ₹{committed['fare_inr']}."
+    if hedge["round"] > 1:
+        return f"Asking {' and '.join(names.values())} again (round {hedge['round']})."
+    accepted = [r for r in rides if r["state"] == "accepted"]
+    if accepted:
+        waiting = [names[r["platform"]] for r in rides if r["state"] == "searching"]
+        first = accepted[0]
+        return f"{first['label']} has a driver ({first['driver']}, {first['eta_minutes']} min). " + (f"Waiting for {' and '.join(waiting)} before choosing." if waiting else "Choosing the faster one.")
+    return f"Asking {' and '.join(names.values())} for a driver…"
+
+
+PLACE_NAMES = {"pg": "PG", "office": "Office"}
+
+
+def _place(name: str) -> str:
+    """Readable place label for a seeded location key such as 'pg' or 'office'."""
+    return PLACE_NAMES.get(name.lower(), name.replace("_", " ").title())
+
+
+def _platform_name(platform: str) -> str:
+    return _scenario()["platforms"][platform]["display_name"]
+
+
+def _ride_label(ride: dict[str, Any]) -> str:
+    return _platform_name(ride["platform"])
+
+
+def _ride_line(ride: dict[str, Any]) -> str:
+    """Plain line for one platform card, with no raw field names."""
+    if ride["state"] == "accepted":
+        return f"Driver {ride['driver']} · {ride['eta_minutes']} min away · ₹{ride['fare_inr']}"
+    if ride["state"] == "cancelled" and ride["by"] == "driver":
+        return "The driver cancelled this ride"
+    if ride["state"] == "cancelled":
+        fee = f" (₹{ride['cancellation_fee_inr']} fee)" if ride.get("cancellation_fee_inr") else ""
+        return f"We cancelled this one to keep the other ride{fee}"
+    return "Waiting for a driver to accept…"
+
+
 def _view(hedge: dict[str, Any], scenario: dict[str, Any], now: float) -> dict[str, Any]:
     rides = []
     for ride in hedge["rides"]:
-        view = _ride_state(ride, scenario["platforms"][ride["platform"]], now)
-        rides.append({"ride_id": ride["ride_id"], "platform": ride["platform"], "round": ride["round"], "attempt": ride["attempt"], **view})
+        config = scenario["platforms"][ride["platform"]]
+        view = _ride_state(ride, config, now)
+        row = {"ride_id": ride["ride_id"], "platform": ride["platform"], "round": ride["round"], "attempt": ride["attempt"], **view}
+        row["label"] = config["display_name"]
+        row["line"] = _ride_line(row)
+        rides.append(row)
     committed = None
     if hedge["committed_ride_id"]:
         committed = next(r for r in rides if r["ride_id"] == hedge["committed_ride_id"])
+    requester = hedge.get("requester_name", hedge["person_id"])
     return {
         "hedge_id": hedge["hedge_id"],
         "success": True,
+        "requested_by": requester,
+        "origin": hedge["origin"],
+        "destination": hedge["destination"],
+        "headline": f"{requester}'s ride: {_place(hedge['origin'])} → {_place(hedge['destination'])}",
+        "plain_status": _plain_status(hedge, rides),
         "status": hedge["status"],
         "failure_reason": hedge["failure_reason"],
         "round": hedge["round"],
@@ -195,6 +286,22 @@ def _view(hedge: dict[str, Any], scenario: dict[str, Any], now: float) -> dict[s
         "availability": "simulated",
         "source": SOURCE,
     }
+
+
+def list_ride_hedges(person_id: str | None = None) -> dict[str, Any]:
+    """List ride hedges, newest first, with their plain status; advances each to the current simulated time."""
+    hedges = _hedges()
+    scenario = _scenario()
+    now = get_clock().now()
+    rows = []
+    for hedge in hedges["hedges"].values():
+        if person_id is not None and hedge["person_id"] != person_id:
+            continue
+        _advance(hedge, scenario, now)
+        rows.append(hedge)
+    _save(hedges)
+    rows.sort(key=lambda h: h["created_at"], reverse=True)
+    return {"hedges": [_view(h, scenario, now) for h in rows], "count": len(rows), "availability": "simulated", "source": SOURCE}
 
 
 def _save(hedges: dict[str, Any]) -> None:
@@ -276,6 +383,7 @@ def start_ride_hedge(person_id: str, proposal_id: str) -> dict[str, Any]:
     hedge = {
         "hedge_id": f"hedge.{uuid4().hex[:10]}",
         "person_id": person_id,
+        "requester_name": load_json("memory.json")["people"][person_id]["display_name"],
         "proposal_id": proposal_id,
         "origin": payload["origin"],
         "destination": payload["destination"],
@@ -288,7 +396,7 @@ def start_ride_hedge(person_id: str, proposal_id: str) -> dict[str, Any]:
         "committed_ride_id": None,
         "fees_inr": 0,
         "events": [],
-        "explanation": ["Requested rides on both platforms. Waiting for accepts before committing."],
+        "explanation": ["Asked both apps for a driver. Waiting for their answers before choosing."],
         "failure_reason": None,
         "created_at": now,
     }

@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Verity Household Simulator</title>
+    <link rel="icon" href="data:," />
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
@@ -28,14 +29,31 @@
         </div>
         <aside class="event-panel">
           <div class="panel-heading"><h2>Live activity</h2><span id="status">Loading state…</span></div>
+
+          <section class="activity-section ride-desk" aria-labelledby="ride-heading">
+            <div class="section-heading"><h3 id="ride-heading">Ride requests</h3><span id="ride-count">None yet</span></div>
+            <div id="rides" class="rides" aria-live="polite">
+              <p class="empty-hint">No ride requests yet. Try “Get me a ride to the office.”</p>
+            </div>
+          </section>
+
+          <section class="activity-section agent-status" aria-label="What Verity is doing">
+            <span class="avatar verity-mark" aria-hidden="true">V</span>
+            <div class="agent-line"><b>Verity</b><span id="agent-now">Ready. Ask for something, or try the time tick.</span></div>
+          </section>
+
           <section class="activity-section conversation-section" aria-labelledby="conversation-heading">
             <h3 id="conversation-heading">Conversation</h3>
             <div id="conversation" class="conversation" role="log" aria-live="polite"></div>
           </section>
-          <section class="activity-section trace-section" aria-labelledby="trace-heading">
-            <div class="section-heading"><h3 id="trace-heading">Tool trace</h3><span id="trace-status">Waiting</span></div>
-            <p class="trace-help">Exact MCP calls and results for this turn.</p>
-            <pre id="trace">Waiting for a Verity turn.</pre>
+
+          <section class="activity-section steps-section" aria-labelledby="steps-heading">
+            <div class="section-heading"><h3 id="steps-heading">What Verity did</h3><span id="trace-status">Waiting</span></div>
+            <ol id="steps" class="steps"><li class="muted">Steps appear here after each request.</li></ol>
+            <details class="technical">
+              <summary>Technical details (raw tool results)</summary>
+              <pre id="trace">Waiting for a Verity turn.</pre>
+            </details>
           </section>
         </aside>
       </section>

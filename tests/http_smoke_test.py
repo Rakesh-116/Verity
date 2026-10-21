@@ -1,13 +1,14 @@
 """Verify a running local Verity Streamable HTTP endpoint."""
 
 import asyncio
+import os
 
 from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
 
 
 async def verify() -> None:
-    async with streamablehttp_client("http://127.0.0.1:8000/mcp") as (read, write, _):
+    async with streamablehttp_client(os.getenv("VERITY_HTTP_TEST_URL", "http://127.0.0.1:8000/mcp")) as (read, write, _):
         async with ClientSession(read, write) as session:
             init = await session.initialize()
             # Alexa+ track requires spec 2025-11-25 or later over Streamable HTTP.
