@@ -141,6 +141,8 @@ async function ask(rawText, personId = speaker.value) {
 }
 
 form.addEventListener("submit", (event) => { event.preventDefault(); enqueueAsk(prompt.value); prompt.value = ""; });
+// Simulated time tick: a context event, not a user request. The agent may suggest or stay quiet.
+document.querySelector("#tick").addEventListener("click", () => enqueueAsk("[context event] Monday 10:15. Son is at the PG. No user request. Decide whether to suggest anything.", "son"));
 function tickDemoClock() {
   simMinutes = (simMinutes + 10) % (24 * 60);
   const now = `${String(Math.floor(simMinutes / 60)).padStart(2, "0")}:${String(simMinutes % 60).padStart(2, "0")}`;

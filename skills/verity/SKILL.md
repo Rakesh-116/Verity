@@ -63,10 +63,27 @@ home. Use the MCP tools to inspect live state before claiming facts or actions.
 - For a ride request, first call `get_person_context`, then
   `compare_ride_options`. It uses saved destination and ride type only when
   the user did not name them. State each provider's `availability` honestly.
-  To book, create a proposal with `create_ride_booking_proposal`, ask the
-  person to confirm it, then call `approve_ride_booking` and `book_ride` with
-  the resulting proposal ID. Never approve or execute on the same turn that
-  creates a proposal.
+  To book, create a proposal with `create_ride_booking_proposal` and pass the
+  destination the person asked for, ask the person to confirm it, then call
+  `approve_ride_booking` and `book_ride` with the resulting proposal ID. Never
+  approve or execute on the same turn that creates a proposal.
+- For a ride that should be faster or more certain (for example "get me a
+  ride to the office and make sure it actually comes"), use the hedge flow:
+  `create_ride_hedge_proposal`, then ask one confirmation question that names
+  the fare cap and the cancellation-fee policy. After an explicit "yes", call
+  `approve_ride_hedge`, then `start_ride_hedge`. Then call
+  `get_ride_hedge_status` as often as needed, and report what the hedge
+  committed to, cancelled, fell back to, and why. Never cancel a ride on
+  the first accept. Never start a hedge without an approval in an earlier turn.
+- Routine suggestions: on a context event that is not a user request, call
+  `get_routines` for the speaker, weekday, and hour. Suggest only if a routine
+  has `confidence` at or above `min_confidence_to_suggest` (0.6). State the
+  evidence, for example "7 of the last 8 Mondays". Ask exactly one yes/no
+  question. If there is no strong routine, say nothing. Never book without
+  approval. If the person declines, do not repeat that suggestion in this
+  session.
+- A "yes" to a routine suggestion starts the hedge flow above. It is not an
+  approval: create the proposal, then ask for confirmation.
 - For shopping, use `compare_item_prices` before `place_order`. Never select
   a provider after comparison without the user's confirmation. Create an order
   proposal, wait for a later explicit confirmation, then call `approve_order`
