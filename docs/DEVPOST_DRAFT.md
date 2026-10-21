@@ -24,6 +24,11 @@ approval, and reports exactly what it confirmed.
   booking proposal. Booking happens only after a separate approval.
 - Refuses a repeated booking of an already-executed proposal and states the
   reason. It does not substitute a different action.
+- Suggests a routine ride from seeded history at a simulated time tick, with
+  the evidence, and asks before doing anything.
+- Hedges a ride across two simulated platforms: commits to the faster driver
+  only after both accept, recovers when that driver cancels, and explains
+  the cancellation fee it paid.
 - Shows every tool call and result in a trace.
 
 All providers, devices, and the Alexa+ surface are **simulated** and labeled
@@ -54,10 +59,8 @@ that way in the code and the UI.
 
 ## What's next
 
-- Routine-based suggestions learned from household history (seeded data for now).
-- Ride hedging: request on two platforms, commit to the faster driver, recover
-  when a driver cancels, all through the existing approval flow.
-- Real providers and device adapters behind the same tool contracts.
+- Routine suggestions from real household history instead of seeded data.
+- Real provider adapters behind the same hedge and booking contracts.
 - AWS: Amazon Bedrock as an optional LLM provider (implemented, not yet run
   live), plus DynamoDB and IoT Device Shadows as planned work.
 
@@ -118,7 +121,7 @@ from this project's experience; **you confirm each answer.**
 
 Git history: first commit `0d49d08` (2026-10-20). Work from 2026-10-21 includes
 the MCP protocol upgrade to 2025-11-25, test isolation, the license, the
-neutral provider names, and the README rewrite. **To confirm:** whether the project or any part of
+neutral provider names, the README rewrite, and the ride hedge and routine features. **To confirm:** whether the project or any part of
 the idea existed before 2026-08-31. If so, describe what was significantly
 updated during the period.
 

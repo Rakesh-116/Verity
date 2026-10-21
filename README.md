@@ -26,10 +26,18 @@ device is contacted.
   delivery providers.
 - **Proactive energy saving:** finds lights or fans on in empty rooms and
   proposes switching them off. A stale proposal is refused, not executed.
+- **Ride hedging (simulated):** request on two simulated platforms, wait for
+  both accepts or a decision window, commit to the lowest-ETA accepted ride,
+  cancel the other with its fee recorded, and re-request if the committed
+  driver cancels. The start requires an approved proposal.
+- **Routine suggestions (seeded history):** counts past weekday/hour ride
+  events and reports confidence. The agent suggests only at 0.6 or higher,
+  states the evidence, and asks one yes/no question. This is counting from
+  seeded data, not a learned model.
 - **Explainability:** every state-changing call is appended to an action log
-  with its result.
+  with its result, and hedges carry a plain-English explanation of each decision.
 
-29 MCP tools are registered in [server/app.py](server/app.py).
+34 MCP tools are registered in [server/app.py](server/app.py).
 
 ## Architecture
 
@@ -125,6 +133,7 @@ seeded state, so the tracked JSON files are never modified.
 .\.venv\Scripts\python.exe tests\phase2_home_tools_test.py
 .\.venv\Scripts\python.exe tests\phase3_context_tools_test.py
 .\.venv\Scripts\python.exe tests\phase4_primitives_test.py
+.\.venv\Scripts\python.exe tests\phase5_ride_hedge_routines_test.py
 ```
 
 The HTTP check needs the server running (see Run):
@@ -140,7 +149,8 @@ It asserts the negotiated protocol version is `2025-11-25` or later.
 | Area | Status |
 | --- | --- |
 | MCP server, tools, approvals, ranking, action log | Real code, runs locally |
-| Ride providers (QuickRide, RideCo, CityCab) | Simulated, labeled `verity.simulated.*` |
+| Ride providers (QuickRide, RideCo, CityCab) and ride hedging | Simulated, labeled `verity.simulated.*`; timings in `server/state/ride_scenarios.json` |
+| Routine suggestions | Counts from seeded `server/state/routines.json`; not learned |
 | Delivery providers (DashMart, QuickMart, FoodDash, ShopNest, MegaShop) | Simulated |
 | Home devices, occupancy, Housebot robot | Simulated virtual home |
 | Travel and assessment reads | Mocked |

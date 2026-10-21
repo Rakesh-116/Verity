@@ -20,7 +20,7 @@ Rules verified from the official rules page on 2026-10-21. Status values:
 | Public repo with an open-source license detectable by GitHub (About section) | partial | [LICENSE](../LICENSE) is standard MIT text. Repo still needs to be pushed to GitHub as public and the About license verified by you. |
 | Setup and run instructions | done | [README.md](../README.md) |
 | Repository contains all assets needed to run the submission | done | Tracked: server, simulator, skills, tests, docs. |
-| Tests run without API keys | done | Phase 1–4 tests and HTTP smoke test use no keys (verified). |
+| Tests run without API keys | done | Phase 1–5 tests and HTTP smoke test use no keys (verified). |
 | No secrets committed | done | Audit on 2026-10-21: no key patterns in tracked files or history; `.env` is gitignored. |
 | Line endings normalized | done | `.gitattributes` (`* text=auto eol=lf`). |
 
@@ -72,7 +72,7 @@ in planning docs only. The default demo does not show them.
 | Technical Implementation | Real MCP server on the 2025-11-25 spec over Streamable HTTP; 29 tools; deterministic ranking and approvals in Python; tested without keys. |
 | Design | Browser simulator with a live MCP trace; household floor plan; explicit simulated labels. |
 | Potential Impact | One household's fragmented home, commute, and shopping context behind one agent that asks before acting. |
-| Quality of the Idea | Cross-service orchestration with approval gates and explainable proactive suggestions. Routine-based suggestions and ride hedging are planned after the submission pack. |
+| Quality of the Idea | Cross-service orchestration with approval gates and explainable proactive suggestions. Ride hedging across two simulated platforms with approval, fee-aware recovery, and routine suggestions with evidence (seeded history). |
 
 ## Open items for you
 
