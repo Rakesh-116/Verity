@@ -411,7 +411,17 @@ def _save(hedges: dict[str, Any]) -> None:
     save_json(HEDGE_FILE, hedges)
 
 
-def create_ride_hedge_proposal(person_id: str, origin: str, destination: str, minutes_until_meeting: int | None = None) -> dict[str, Any]:
+ALLOWED_DEADLINE_SOURCES = {"calendar", "user"}
+
+
+def create_ride_hedge_proposal(
+    person_id: str,
+    origin: str,
+    destination: str,
+    minutes_until_meeting: int | None = None,
+    deadline_source: str | None = None,
+    deadline_title: str | None = None,
+) -> dict[str, Any]:
     """Create a pending two-platform ride proposal; nothing is requested yet.
 
     With minutes_until_meeting the proposal also carries the deadline and a cost
@@ -444,6 +454,9 @@ def create_ride_hedge_proposal(person_id: str, origin: str, destination: str, mi
     if minutes_until_meeting is not None:
         if minutes_until_meeting <= 0:
             return {"person_id": person_id, "success": False, "reason": "meeting_time_passed"}
+        # A deadline must come from the calendar or from the person. A routine guess is never a deadline.
+        if deadline_source not in ALLOWED_DEADLINE_SOURCES:
+            return {"person_id": person_id, "success": False, "reason": "deadline_source_required", "allowed_sources": sorted(ALLOWED_DEADLINE_SOURCES)}
         # Learned from this person's past choices; the result says it is an estimate.
         choices = load_json("routines.json").get(person_id, {}).get("choices")
         value, basis = estimate_value_of_time(choices, policy["default_value_of_time_inr_per_min"])
@@ -465,8 +478,11 @@ def create_ride_hedge_proposal(person_id: str, origin: str, destination: str, mi
             "late_penalty_inr_per_min": policy["late_penalty_inr_per_min"],
             "value_of_time_inr_per_min": value,
             "value_of_time_basis": basis,
+            "source": deadline_source,
+            "title": deadline_title,
         }
-        deadline_note = (f" Meeting in {minutes_until_meeting} min. Time is valued at ₹{value}/min ({basis}); "
+        where = f"'{deadline_title}' from your calendar" if deadline_source == "calendar" else "the time you gave"
+        deadline_note = (f" Deadline: {where}, in {minutes_until_meeting} min. Time is valued at ₹{value}/min ({basis}); "
                          f"each minute late costs ₹{policy['late_penalty_inr_per_min']}.")
     proposal = create_proposal(person_id, DOMAIN, payload)
     fee_text = ", ".join(f"{q['display_name']} {q['cancellation_fee_inr']} INR" for q in quotes if q["cancellation_fee_inr"]) or "none"

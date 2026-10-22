@@ -118,6 +118,14 @@ def _describe(name: str, args: dict[str, Any], out: dict[str, Any]) -> tuple[str
         if failed:
             return f"Could not read the ride: {_reason(out)}.", False
         return f"Checked the ride: {out.get('plain_status', 'updated')}", True
+    if name == "find_meeting_deadline":
+        if failed:
+            return f"Could not check the calendar: {_reason(out)}.", False
+        if out.get("source") == "calendar":
+            return f"Found '{out.get('title')}' at {out.get('start')} on the calendar.", True
+        if out.get("source") == "routine_hint":
+            return f"No calendar event. Usually leaves around {out.get('usual_hour')}:00, so I'll ask before using it.", True
+        return "No calendar event or usual pattern for this trip.", True
     if name == "cancel_ride_hedge":
         if failed:
             return f"Could not cancel the ride: {_reason(out)}.", False

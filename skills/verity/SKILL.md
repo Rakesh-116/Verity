@@ -75,9 +75,18 @@ home. Use the MCP tools to inspect live state before claiming facts or actions.
   `get_ride_hedge_status` as often as needed, and report what the hedge
   committed to, cancelled, fell back to, and why. Never cancel a ride on
   the first accept. Never start a hedge without an approval in an earlier turn.
+- Never assume a meeting time. For a ride to the office, first call
+  `find_meeting_deadline` with the current time (from the person or the context
+  event). If the source is `calendar`, pass that time as
+  `minutes_until_meeting` with `deadline_source="calendar"` and
+  `deadline_title` set to the event title, and say which event you used. If the
+  source is `routine_hint`, ask one yes/no question about the meeting time. Only
+  after a yes, or a time the person gives, pass `deadline_source="user"`. If the
+  source is `none`, ask once whether there is a time to meet, or go with the
+  fastest rule and say there is no deadline.
 - If the person gives a meeting or deadline time (for example "I need to be at
   the office by 11:30"), convert it to minutes from now and pass
-  `minutes_until_meeting` to `create_ride_hedge_proposal`. The proposal then
+  `minutes_until_meeting` with `deadline_source="user"`. The proposal then
   shows the value of time, which is estimated from past choices, and each
   option's estimated lateness and cost. Explain that choice in one sentence.
   Without a deadline, the rule is the fastest accepted ride.

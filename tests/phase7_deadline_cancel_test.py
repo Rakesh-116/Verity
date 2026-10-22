@@ -37,8 +37,8 @@ def _reset() -> None:
     (STATE_DIRECTORY / "routines.json").write_text(json.dumps(ORIGINAL_ROUTINES), encoding="utf-8")
 
 
-def _hedge(clock: ManualClock, minutes_until_meeting: int | None) -> str:
-    proposal = create_ride_hedge_proposal(PERSON, "pg", "office", minutes_until_meeting=minutes_until_meeting)
+def _hedge(clock: ManualClock, minutes_until_meeting: int | None, deadline_source: str = "user") -> str:
+    proposal = create_ride_hedge_proposal(PERSON, "pg", "office", minutes_until_meeting=minutes_until_meeting, deadline_source=deadline_source)
     assert proposal["success"], proposal
     assert approve_ride_hedge(PERSON, proposal["proposal_id"])["success"]
     started = start_ride_hedge(PERSON, proposal["proposal_id"])
@@ -58,7 +58,7 @@ def test_tight_deadline_picks_the_faster_on_time_ride() -> None:
     _reset()
     clock = ManualClock(1000.0)
     set_clock(clock)
-    proposal = create_ride_hedge_proposal(PERSON, "pg", "office", minutes_until_meeting=15)
+    proposal = create_ride_hedge_proposal(PERSON, "pg", "office", minutes_until_meeting=15, deadline_source="user")
     assert proposal["deadline"]["value_of_time_inr_per_min"] == 4.14, proposal["deadline"]
     assert "estimated from 6 past choices" in proposal["cancellation_fee_policy"], proposal["cancellation_fee_policy"]
     approve_ride_hedge(PERSON, proposal["proposal_id"])
@@ -75,7 +75,7 @@ def test_loose_deadline_picks_the_cheaper_ride() -> None:
     _reset()
     clock = ManualClock(2000.0)
     set_clock(clock)
-    hedge_id = _hedge(clock, minutes_until_meeting=60)
+    hedge_id = _hedge(clock, minutes_until_meeting=60, deadline_source="user")
     clock.advance(8)
     view = get_ride_hedge_status(hedge_id)
     assert view["committed"]["platform"] == "quickride", view

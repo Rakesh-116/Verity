@@ -266,7 +266,8 @@ function rideCard(hedge) {
 
   if (hedge.deadline) {
     const d = hedge.deadline;
-    card.append(el("div", "deadline", `Meeting in ${d.minutes_until_meeting} min · time valued at ₹${d.value_of_time_inr_per_min}/min (${d.value_of_time_basis}) · lateness ₹${d.late_penalty_inr_per_min}/min`));
+    const where = d.source === "calendar" && d.title ? `${d.title} (calendar)` : "the time you gave";
+    card.append(el("div", "deadline", `Deadline: ${where}, in ${d.minutes_until_meeting} min · time valued at ₹${d.value_of_time_inr_per_min}/min (${d.value_of_time_basis}) · lateness ₹${d.late_penalty_inr_per_min}/min`));
   }
   if (hedge.status === "committed" && hedge.committed) card.append(notificationCard(hedge));
   if (hedge.explanation && hedge.explanation.length) {
