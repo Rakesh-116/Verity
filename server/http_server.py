@@ -18,4 +18,6 @@ if __name__ == "__main__":
     # the dedicated transport-hardening checkpoint.
     # VERITY_MCP_PORT lets a second copy run beside another instance (default 8000).
     mcp.settings.port = int(os.getenv("VERITY_MCP_PORT", "8000"))
+    # WARNING hides uvicorn per-request access lines; the simulator opens one MCP session per call.
+    mcp.settings.log_level = "WARNING"
     mcp.run(transport="streamable-http")
