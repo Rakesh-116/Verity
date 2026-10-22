@@ -33,6 +33,7 @@ from tools.delivery_tools import (
 from tools.approval_tools import list_pending_actions
 from tools.hedge_tools import (
     approve_ride_hedge,
+    cancel_ride_hedge,
     create_ride_hedge_proposal,
     get_ride_hedge_status,
     list_ride_hedges,
@@ -85,6 +86,7 @@ for tool in (
     start_ride_hedge,
     get_ride_hedge_status,
     list_ride_hedges,
+    cancel_ride_hedge,
     get_routines,
 ):
     mcp.tool()(tool)

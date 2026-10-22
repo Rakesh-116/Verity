@@ -10,6 +10,7 @@ from uuid import uuid4
 
 from services.approval_store import approve_proposal, consume_approved_proposal, create_proposal
 from services.clock import get_clock
+from services.ride_value import estimate_value_of_time, score_option
 from state.store import append_action_log, load_json, save_json
 
 
@@ -132,13 +133,55 @@ def _decision_time(hedge: dict[str, Any], scenario: dict[str, Any], current: lis
     return max(window_end, min(accept_times))
 
 
+def _deadline_scores(hedge: dict[str, Any], scenario: dict[str, Any], rides: list[dict[str, Any]]) -> dict[str, dict[str, float]]:
+    """Cost of each accepted ride when the hedge has a meeting deadline; empty when it does not."""
+    deadline = hedge.get("deadline")
+    if not deadline:
+        return {}
+    scores = {}
+    for ride in rides:
+        config = scenario["platforms"][ride["platform"]]
+        accepted_at = ride["requested_at"] + config["accept_after_seconds"]
+        if _ride_state(ride, config, accepted_at)["state"] != "accepted":
+            continue
+        scores[ride["ride_id"]] = score_option(
+            eta_min=config["eta_minutes"],
+            fare_inr=config["fare_inr"],
+            accepted_at=accepted_at,
+            meeting_at=deadline["meeting_at"],
+            trip_min=deadline["trip_minutes"],
+            value_of_time=deadline["value_of_time_inr_per_min"],
+            late_penalty_per_min=deadline["late_penalty_inr_per_min"],
+        )
+    return scores
+
+
+def _deadline_reason(winner: dict[str, Any], scores: dict[str, dict[str, float]], scenario: dict[str, Any], accepted: list[dict[str, Any]], trigger: str) -> str:
+    """Plain explanation of a deadline-based choice: total cost, lateness, and the alternative."""
+    name = scenario["platforms"][winner["platform"]]["display_name"]
+    mine = scores[winner["ride_id"]]
+    text = f"Chose {name}: lowest total cost ₹{mine['cost_inr']:.0f} (fare, waiting and lateness together)."
+    for other in accepted:
+        if other is winner:
+            continue
+        other_name = scenario["platforms"][other["platform"]]["display_name"]
+        theirs = scores[other["ride_id"]]
+        if theirs["late_min"] > 0:
+            text += f" {other_name} would be {theirs['late_min']:.0f} min late (₹{theirs['cost_inr']:.0f})."
+        else:
+            text += f" {other_name} would cost ₹{theirs['cost_inr']:.0f}."
+    if mine["late_min"] > 0:
+        text += f" Even the best choice is {mine['late_min']:.0f} min late."
+    return text + f" Decided because {trigger}."
+
+
 def _advance(hedge: dict[str, Any], scenario: dict[str, Any], now: float) -> None:
     """Apply the hedge rules up to the current simulated time.
 
     Decisions are evaluated as of the moment they become due, so a late poll
     gives the same answer as an early one. Idempotent: each step runs once.
     """
-    if hedge["status"] == "failed":
+    if hedge["status"] in {"failed", "cancelled"}:
         return
     _record_observations(hedge, scenario, now)
     policy = scenario["hedge_policy"]
@@ -149,14 +192,22 @@ def _advance(hedge: dict[str, Any], scenario: dict[str, Any], now: float) -> Non
         if decision_at is not None and decision_at <= now:
             accepted = _accepted_candidates(hedge, scenario, decision_at, current)
             if accepted:
-                winner = min(accepted, key=lambda r: (_ride_state(r, scenario["platforms"][r["platform"]], decision_at)["eta_minutes"], _ride_state(r, scenario["platforms"][r["platform"]], decision_at)["fare_inr"]))
+                scores = _deadline_scores(hedge, scenario, accepted)
+                if scores:
+                    winner = min(accepted, key=lambda r: (scores[r["ride_id"]]["cost_inr"], _ride_state(r, scenario["platforms"][r["platform"]], decision_at)["eta_minutes"]))
+                else:
+                    winner = min(accepted, key=lambda r: (_ride_state(r, scenario["platforms"][r["platform"]], decision_at)["eta_minutes"], _ride_state(r, scenario["platforms"][r["platform"]], decision_at)["fare_inr"]))
                 all_accepted = all(_ride_state(r, scenario["platforms"][r["platform"]], decision_at)["state"] == "accepted" for r in current)
                 trigger = "both apps accepted" if all_accepted else f"the {policy['decision_window_seconds']}-second wait ended"
                 wv = _ride_state(winner, scenario["platforms"][winner["platform"]], decision_at)
-                _commit(hedge, winner, scenario, decision_at, (
-                    f"Chose {scenario['platforms'][winner['platform']]['display_name']} (ETA {wv['eta_minutes']} min, ₹{wv['fare_inr']}): "
-                    f"the fastest accepted ride, decided because {trigger}."
-                ))
+                if scores:
+                    reason = _deadline_reason(winner, scores, scenario, accepted, trigger)
+                else:
+                    reason = (
+                        f"Chose {scenario['platforms'][winner['platform']]['display_name']} (ETA {wv['eta_minutes']} min, ₹{wv['fare_inr']}): "
+                        f"the fastest accepted ride, decided because {trigger}."
+                    )
+                _commit(hedge, winner, scenario, decision_at, reason)
                 for other in current:
                     if other is winner or other.get("user_cancelled"):
                         continue
@@ -212,6 +263,8 @@ def _plain_status(hedge: dict[str, Any], rides: list[dict[str, Any]]) -> str:
     names = {p: _platform_name(p) for p in hedge["platforms"]}
     if hedge["status"] == "failed":
         return REASON_TEXT.get(hedge["failure_reason"], "The ride request failed.")
+    if hedge["status"] == "cancelled":
+        return f"You cancelled this ride. Fees so far: ₹{hedge['fees_inr']} (simulated)."
     if hedge["status"] == "committed":
         committed = next((r for r in rides if r["ride_id"] == hedge["committed_ride_id"]), None)
         if committed and committed["state"] == "accepted":
@@ -271,6 +324,8 @@ def _view(hedge: dict[str, Any], scenario: dict[str, Any], now: float) -> dict[s
         "hedge_id": hedge["hedge_id"],
         "success": True,
         "requested_by": requester,
+        "person_id": hedge["person_id"],
+        "deadline": hedge.get("deadline"),
         "origin": hedge["origin"],
         "destination": hedge["destination"],
         "headline": f"{requester}'s ride: {_place(hedge['origin'])} → {_place(hedge['destination'])}",
@@ -286,6 +341,54 @@ def _view(hedge: dict[str, Any], scenario: dict[str, Any], now: float) -> dict[s
         "availability": "simulated",
         "source": SOURCE,
     }
+
+
+def cancel_ride_hedge(person_id: str, hedge_id: str) -> dict[str, Any]:
+    """Cancel a ride request on the user's own instruction. A fee applies if the chosen driver had accepted.
+
+    This is a cancellation, not a booking, so it does not need a new proposal.
+    Refused for another person's request, and refused again once cancelled.
+    """
+    hedges = _hedges()
+    hedge = hedges["hedges"].get(hedge_id)
+    if hedge is None:
+        return {"hedge_id": hedge_id, "success": False, "reason": "hedge_not_found", "confirmed_state": None}
+    if hedge["person_id"] != person_id:
+        return {"hedge_id": hedge_id, "success": False, "reason": "hedge_owner_mismatch", "confirmed_state": None}
+    if hedge["status"] == "cancelled":
+        return {"hedge_id": hedge_id, "success": False, "reason": "already_cancelled", "confirmed_state": "cancelled"}
+    if hedge["status"] == "failed":
+        return {"hedge_id": hedge_id, "success": False, "reason": "nothing_to_cancel", "confirmed_state": "failed"}
+
+    scenario = _scenario()
+    now = get_clock().now()
+    _advance(hedge, scenario, now)
+    current = [ride for ride in hedge["rides"] if ride["round"] == hedge["round"]]
+    fee_before = hedge["fees_inr"]
+    for ride in current:
+        if ride.get("user_cancelled"):
+            continue
+        if _ride_state(ride, scenario["platforms"][ride["platform"]], now)["state"] == "cancelled":
+            continue
+        config = scenario["platforms"][ride["platform"]]
+        accepted = _ride_state(ride, config, now)["state"] == "accepted"
+        fee = config["cancellation_fee_inr"] if accepted else 0
+        ride["user_cancelled"] = True
+        hedge["fees_inr"] += fee
+        hedge["events"].append({"event": "cancelled_by_user", "ride_id": ride["ride_id"], "fee_inr": fee})
+    hedge["status"] = "cancelled"
+    hedge["committed_ride_id"] = None
+    hedge["failure_reason"] = "cancelled_by_user"
+    charged = hedge["fees_inr"] - fee_before
+    hedge["explanation"].append(
+        "You cancelled this ride request." + (f" A ₹{charged} cancellation fee applies because a driver had already accepted." if charged else " No fee was charged.")
+    )
+    hedge["events"].append({"event": "failed", "reason": "cancelled_by_user"})
+    hedges["hedges"][hedge_id] = hedge
+    _save(hedges)
+    append_action_log(person_id, "mobility", f"Cancelled ride request {hedge_id}.", {"hedge_id": hedge_id, "fee_inr": charged})
+    view = _view(hedge, scenario, now)
+    return {**view, "fee_charged_inr": charged, "confirmed_state": "cancelled"}
 
 
 def list_ride_hedges(person_id: str | None = None) -> dict[str, Any]:
@@ -308,8 +411,12 @@ def _save(hedges: dict[str, Any]) -> None:
     save_json(HEDGE_FILE, hedges)
 
 
-def create_ride_hedge_proposal(person_id: str, origin: str, destination: str) -> dict[str, Any]:
-    """Create a pending two-platform ride proposal with quotes and the cancellation-fee policy; nothing is requested yet."""
+def create_ride_hedge_proposal(person_id: str, origin: str, destination: str, minutes_until_meeting: int | None = None) -> dict[str, Any]:
+    """Create a pending two-platform ride proposal; nothing is requested yet.
+
+    With minutes_until_meeting the proposal also carries the deadline and a cost
+    preview per option. The choice is still made when the rides are accepted.
+    """
     if not _person_known(person_id):
         return {"person_id": person_id, "success": False, "reason": "person_not_found"}
     if not origin.strip() or not destination.strip():
@@ -323,7 +430,8 @@ def create_ride_hedge_proposal(person_id: str, origin: str, destination: str) ->
     ]
     if len(quotes) < 2:
         return {"person_id": person_id, "success": False, "reason": "not_enough_quotes_within_fare_cap"}
-    expires_at = get_clock().now() + policy["proposal_ttl_seconds"]
+    now = get_clock().now()
+    expires_at = now + policy["proposal_ttl_seconds"]
     payload = {
         "origin": origin,
         "destination": destination,
@@ -332,6 +440,34 @@ def create_ride_hedge_proposal(person_id: str, origin: str, destination: str) ->
         "max_fare_inr": policy["max_fare_inr"],
         "expires_at": expires_at,
     }
+    deadline_note = ""
+    if minutes_until_meeting is not None:
+        if minutes_until_meeting <= 0:
+            return {"person_id": person_id, "success": False, "reason": "meeting_time_passed"}
+        # Learned from this person's past choices; the result says it is an estimate.
+        choices = load_json("routines.json").get(person_id, {}).get("choices")
+        value, basis = estimate_value_of_time(choices, policy["default_value_of_time_inr_per_min"])
+        meeting_at = now + minutes_until_meeting * 60
+        for quote in quotes:
+            config = scenario["platforms"][quote["platform"]]
+            estimate = score_option(
+                eta_min=quote["eta_minutes"], fare_inr=quote["fare_inr"],
+                accepted_at=now + config["accept_after_seconds"], meeting_at=meeting_at,
+                trip_min=policy["trip_minutes"], value_of_time=value,
+                late_penalty_per_min=policy["late_penalty_inr_per_min"],
+            )
+            quote["estimated_cost_inr"] = estimate["cost_inr"]
+            quote["estimated_late_min"] = estimate["late_min"]
+        payload["deadline"] = {
+            "minutes_until_meeting": minutes_until_meeting,
+            "meeting_at": meeting_at,
+            "trip_minutes": policy["trip_minutes"],
+            "late_penalty_inr_per_min": policy["late_penalty_inr_per_min"],
+            "value_of_time_inr_per_min": value,
+            "value_of_time_basis": basis,
+        }
+        deadline_note = (f" Meeting in {minutes_until_meeting} min. Time is valued at ₹{value}/min ({basis}); "
+                         f"each minute late costs ₹{policy['late_penalty_inr_per_min']}.")
     proposal = create_proposal(person_id, DOMAIN, payload)
     fee_text = ", ".join(f"{q['display_name']} {q['cancellation_fee_inr']} INR" for q in quotes if q["cancellation_fee_inr"]) or "none"
     result = {
@@ -343,7 +479,8 @@ def create_ride_hedge_proposal(person_id: str, origin: str, destination: str) ->
         "destination": destination,
         "quotes": quotes,
         "max_fare_inr": policy["max_fare_inr"],
-        "cancellation_fee_policy": f"Requests go to both platforms. One ride is committed and the other is cancelled. A cancellation fee applies to a ride whose driver already accepted: {fee_text}.",
+        "cancellation_fee_policy": f"Requests go to both platforms. One ride is committed and the other is cancelled. A cancellation fee applies to a ride whose driver already accepted: {fee_text}.{deadline_note}",
+        "deadline": payload.get("deadline"),
         "requires_confirmation": True,
         "availability": "simulated",
     }
@@ -389,6 +526,7 @@ def start_ride_hedge(person_id: str, proposal_id: str) -> dict[str, Any]:
         "destination": payload["destination"],
         "platforms": payload["platforms"],
         "max_fare_inr": payload["max_fare_inr"],
+        "deadline": payload.get("deadline"),
         "status": "searching",
         "round": 1,
         "max_rounds": scenario["hedge_policy"]["max_rounds"],

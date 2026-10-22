@@ -75,6 +75,15 @@ home. Use the MCP tools to inspect live state before claiming facts or actions.
   `get_ride_hedge_status` as often as needed, and report what the hedge
   committed to, cancelled, fell back to, and why. Never cancel a ride on
   the first accept. Never start a hedge without an approval in an earlier turn.
+- If the person gives a meeting or deadline time (for example "I need to be at
+  the office by 11:30"), convert it to minutes from now and pass
+  `minutes_until_meeting` to `create_ride_hedge_proposal`. The proposal then
+  shows the value of time, which is estimated from past choices, and each
+  option's estimated lateness and cost. Explain that choice in one sentence.
+  Without a deadline, the rule is the fastest accepted ride.
+- To cancel a ride request, call `cancel_ride_hedge` only when the person asks
+  to cancel. Report the fee that was charged, or the refusal reason. Never
+  cancel on your own judgment.
 - Routine suggestions: on a context event that is not a user request, call
   `get_routines` for the speaker, weekday, and hour. Suggest only if a routine
   has `confidence` at or above `min_confidence_to_suggest` (0.6). State the

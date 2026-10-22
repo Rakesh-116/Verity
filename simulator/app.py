@@ -59,7 +59,18 @@ async def rides(_: Request) -> JSONResponse:
         return JSONResponse({"error": str(error)}, status_code=503)
 
 
+async def cancel_ride(request: Request) -> JSONResponse:
+    """Cancel one ride request for the person who made it; the UI shows the confirmed fee."""
+    payload = await request.json()
+    person_id = str(payload.get("person_id", "")).strip()
+    hedge_id = str(payload.get("hedge_id", "")).strip()
+    if not person_id or not hedge_id:
+        return JSONResponse({"error": "person_id and hedge_id are required"}, status_code=400)
+    return JSONResponse(await host.cancel_ride(person_id, hedge_id))
+
+
 routes = [
+    Route("/api/rides/cancel", cancel_ride, methods=["POST"]),
     Route("/api/chat", chat, methods=["POST"]),
     Route("/api/progress", progress, methods=["GET"]),
     Route("/api/rides", rides, methods=["GET"]),

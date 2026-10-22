@@ -47,6 +47,13 @@ class AgentHost:
             raise RuntimeError(f"list_ride_hedges failed: {result['output']}")
         return result["output"]
 
+    async def cancel_ride(self, person_id: str, hedge_id: str) -> dict[str, Any]:
+        """Cancel a ride request the person asked to cancel; the result is what MCP confirmed."""
+        result = await self._gateway.call_tool("cancel_ride_hedge", {"person_id": person_id, "hedge_id": hedge_id})
+        if result["is_error"]:
+            return {"success": False, "reason": "tool_error", "detail": str(result["output"])}
+        return result["output"]
+
     @staticmethod
     def _add_step(progress: dict[str, Any], text: str, ok: bool) -> None:
         progress["steps"].append({"text": text, "ok": ok})

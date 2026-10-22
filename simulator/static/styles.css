@@ -71,3 +71,11 @@ main { max-width: 1280px; margin: auto; } .topbar { display:flex; justify-conten
 .event-panel .conversation { max-height: 170px; overflow-y: auto; }
 .steps-section li.muted { list-style: none; margin-left: -22px; }
 .ride-desk .section-heading { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; }
+
+/* Notification for a committed ride, and the deadline line */
+.notice-card { border: 1px solid #3d8f7a; border-radius: 8px; padding: 8px 10px; background: #0d2a26; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.notice-actions { display: flex; gap: 8px; }
+.notice-actions button { font: inherit; font-size: 12px; padding: 4px 10px; border-radius: 6px; border: 1px solid #5b7fa8; background: #13233a; color: #e7f0fb; cursor: pointer; }
+.notice-actions button.danger { border-color: #e0785b; color: #ffd9cc; }
+.notice-actions button:disabled { opacity: .5; cursor: default; }
+.deadline { font-size: 12px; color: #b8cde6; }

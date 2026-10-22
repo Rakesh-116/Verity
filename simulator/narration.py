@@ -118,6 +118,11 @@ def _describe(name: str, args: dict[str, Any], out: dict[str, Any]) -> tuple[str
         if failed:
             return f"Could not read the ride: {_reason(out)}.", False
         return f"Checked the ride: {out.get('plain_status', 'updated')}", True
+    if name == "cancel_ride_hedge":
+        if failed:
+            return f"Could not cancel the ride: {_reason(out)}.", False
+        fee = out.get("fee_charged_inr", 0)
+        return ("Cancelled the ride, no fee." if not fee else f"Cancelled the ride. Fee charged: ₹{fee}."), True
     if name == "list_ride_hedges":
         return "Checked the ride requests.", True
     if name == "get_routines":

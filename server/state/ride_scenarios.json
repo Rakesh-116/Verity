@@ -25,6 +25,9 @@
     "request_timeout_seconds": 60,
     "max_fare_inr": 200,
     "max_rounds": 2,
-    "proposal_ttl_seconds": 600
+    "proposal_ttl_seconds": 600,
+    "trip_minutes": 12,
+    "late_penalty_inr_per_min": 50,
+    "default_value_of_time_inr_per_min": 2.0
   }
 }

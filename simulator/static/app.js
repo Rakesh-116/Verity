@@ -215,6 +215,36 @@ function el(tag, className, text) {
   const node = document.createElement(tag); if (className) node.className = className;
   if (text !== undefined) node.textContent = text; return node;
 }
+// Notification for a committed ride: details, a way to open it, and a manual cancel.
+function notificationCard(hedge) {
+  const c = hedge.committed;
+  const box = el("div", "notice-card");
+  box.append(el("b", null, "Your ride is set (simulated)"));
+  box.append(el("span", null, `${c.label}: driver ${c.driver}, ${c.eta_minutes} min away, ₹${c.fare_inr}.`));
+  const row = el("div", "notice-actions");
+  const open = el("button", "secondary", "Open ride");
+  open.type = "button";
+  open.addEventListener("click", () => { const why = box.closest(".ride-card").querySelector("details.why"); if (why) why.open = true; box.closest(".ride-card").scrollIntoView({ block: "nearest" }); });
+  const cancel = el("button", "danger", "Cancel ride");
+  cancel.type = "button";
+  cancel.addEventListener("click", () => cancelRide(hedge, cancel));
+  row.append(open, cancel); box.append(row);
+  return box;
+}
+async function cancelRide(hedge, button) {
+  button.disabled = true;
+  try {
+    const response = await fetch("/api/rides/cancel", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ person_id: hedge.person_id, hedge_id: hedge.hedge_id }) });
+    const result = await response.json();
+    const message = result.success
+      ? `Cancelled. Fee for this cancel: ₹${result.fee_charged_inr ?? 0}; fees so far ₹${result.fees_inr ?? 0} (simulated).`
+      : `Not cancelled: ${result.reason || result.error || "unknown reason"}.`;
+    document.querySelector("#agent-now").textContent = message;
+  } catch (error) {
+    document.querySelector("#agent-now").textContent = "Could not reach the simulator to cancel.";
+  } finally { refreshRides(); }
+}
+
 function rideCard(hedge) {
   const card = el("article", "ride-card");
   const head = el("header"); head.append(el("span", "ride-title", hedge.headline), el("span", "badge", "SIMULATED"));
@@ -234,6 +264,11 @@ function rideCard(hedge) {
   });
   card.append(list);
 
+  if (hedge.deadline) {
+    const d = hedge.deadline;
+    card.append(el("div", "deadline", `Meeting in ${d.minutes_until_meeting} min · time valued at ₹${d.value_of_time_inr_per_min}/min (${d.value_of_time_basis}) · lateness ₹${d.late_penalty_inr_per_min}/min`));
+  }
+  if (hedge.status === "committed" && hedge.committed) card.append(notificationCard(hedge));
   if (hedge.explanation && hedge.explanation.length) {
     const why = el("details", "why"); why.open = true; why.append(el("summary", null, "What happened"));
     const steps = el("ol"); hedge.explanation.forEach((line) => steps.append(el("li", null, line)));
