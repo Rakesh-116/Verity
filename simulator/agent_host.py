@@ -136,6 +136,32 @@ def tools_for_request(text: str, mcp_tools: list[dict[str, Any]]) -> list[dict[s
     return [tool for tool in mcp_tools if tool["name"] in wanted]
 
 
+def _place_key(name: Any) -> Any:
+    """'the market', 'Market.' and 'market' are one place for the repeat check."""
+    return re.sub(r"^the\s+", "", str(name or "").strip().lower()).rstrip(".!? ") if isinstance(name, str) else name
+
+
+def _prepared_reply(trace: list[dict[str, Any]]) -> str | None:
+    """Once a ride or an order is prepared for approval, the reply says so. The model is not asked again."""
+    for event in reversed(trace):
+        if event.get("kind") != "tool" or not event.get("ok"):
+            continue
+        if event.get("name") == "create_ride_booking_proposal":
+            output = event["result"].get("output") or {}
+            quote = output.get("quote") or {}
+            provider = PROVIDER_NAMES.get(quote.get("provider", ""), quote.get("provider", "the chosen"))
+            person = event["arguments"].get("person_id", "")
+            name = household_roster().get(person, {}).get("display_name", "")
+            return f"I've prepared the {provider} ride{' for ' + name if name else ''} for your approval. Accept or decline it on screen."
+        if event.get("name") == "create_order_proposal":
+            output = event["result"].get("output") or {}
+            provider = PROVIDER_NAMES.get(output.get("provider", ""), output.get("provider", "the shop"))
+            items = ", ".join(output.get("items") or event["arguments"].get("items", []))
+            return f"I've prepared {items} from {provider} for your approval. Accept or decline it on screen."
+        return None
+    return None
+
+
 def _limit_reply(trace: list[dict[str, Any]]) -> str:
     """Said when the model used all its rounds. It states what was already done, so nothing is hidden."""
     return "I reached the tool-call limit before finishing. Check the cards on screen for what is waiting for you."
@@ -793,6 +819,9 @@ class AgentHost:
         started_at = time.time()
         seen_calls: set[tuple[str, str]] = set()
         for _ in range(MAX_TOOL_ROUNDS):
+            prepared = _prepared_reply(trace)
+            if prepared:
+                return {"speech": prepared, "trace": trace}
             if time.time() - started_at > RUN_TIME_LIMIT_S:
                 break
             response = client.chat.completions.create(
@@ -810,7 +839,8 @@ class AgentHost:
             for call in tool_calls:
                 arguments = json.loads(call.function.arguments or "{}")
                 progress["current"] = describe_doing(call.function.name, arguments)
-                key = (call.function.name, json.dumps(arguments, sort_keys=True))
+                normalised = {k: (_place_key(v) if k == "destination" else v) for k, v in arguments.items()}
+                key = (call.function.name, json.dumps(normalised, sort_keys=True))
                 if key in seen_calls:
                     result = REPEATED_RESULT
                 elif call.function.name in MODEL_BLOCKED_TOOLS:
@@ -879,6 +909,9 @@ class AgentHost:
 
         started_at = time.time()
         for _ in range(MAX_TOOL_ROUNDS):
+            prepared = _prepared_reply(trace)
+            if prepared:
+                return {"speech": prepared, "trace": trace}
             if time.time() - started_at > RUN_TIME_LIMIT_S:
                 break
             response = client.converse(
