@@ -171,3 +171,13 @@ body { padding: 14px; }
 .overlay { background: transparent !important; pointer-events: none; }
 .overlay-card { pointer-events: auto; resize: both; overflow: auto; min-width: 300px; min-height: 160px; }
 .thinking-card { resize: both; overflow: auto; min-width: 320px; min-height: 120px; }
+
+
+/* Echo: a small round dot. The name appears only on hover or keyboard focus. */
+.echo { width: 16px; height: 16px; padding: 0; border: none; background: transparent; border-radius: 50%; cursor: default; }
+.echo:focus-visible { outline: 2px solid #49e0c6; outline-offset: 3px; }
+.echo-ring { display: block; width: 16px; height: 16px; border-radius: 50%; background: #49e0c6; box-shadow: 0 0 10px rgba(73, 224, 198, .6); animation: echo-pulse 2.4s ease-out infinite; }
+.echo.thinking .echo-ring { background: #ffd166; box-shadow: 0 0 12px rgba(255, 209, 102, .7); animation-duration: .8s; }
+.echo.thinking { border: none; color: inherit; }
+.echo-label { display: none; position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%); white-space: nowrap; background: #0d1b2a; border: 1px solid #2f6f66; color: #d7fff0; padding: 4px 8px; border-radius: 6px; font-size: 12px; pointer-events: none; }
+.echo:hover .echo-label, .echo:focus-visible .echo-label { display: block; }
