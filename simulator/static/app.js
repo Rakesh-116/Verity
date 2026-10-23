@@ -187,7 +187,7 @@ function splitQuestion(text) {
 
 async function ask(rawText, personId = speaker.value) {
   const text = rawText.replace(/^alexa[, ]*/i, "").trim(); if (!text) return;
-  hideOverlay("question-overlay"); addMessage("user", PEOPLE[personId].label, text, personId); startProgress(); characters[personId].status = "busy"; renderCharacters(); status.textContent = "Agent is choosing tools…";
+  setTaskBlock("#question-block", false); addMessage("user", PEOPLE[personId].label, text, personId); startProgress(); characters[personId].status = "busy"; renderCharacters(); status.textContent = "Agent is choosing tools…";
   try {
     const response = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ session_id: sessionId, person_id: personId, text }) });
     const result = await response.json(); if (!response.ok) throw new Error(result.error || "Request failed");
@@ -279,13 +279,13 @@ function bookingLine(booking, remaining) {
 }
 function startBookingCountdown(booking) {
   bookingCountdown = { booking, startedAt: Date.now() };
-  document.querySelector("#confirm-text").textContent = bookingLine(booking, booking.pickup_seconds);
+  document.querySelector("#booking-text").textContent = bookingLine(booking, booking.pickup_seconds);
 }
 setInterval(() => {
   if (!bookingCountdown) return;
   const { booking, startedAt } = bookingCountdown;
   const remaining = Math.max(0, booking.pickup_seconds - Math.floor((Date.now() - startedAt) / 1000));
-  if (!document.querySelector("#confirm-overlay").hidden) document.querySelector("#confirm-text").textContent = bookingLine(booking, remaining);
+  if (!document.querySelector("#booking-block").hidden) document.querySelector("#booking-text").textContent = bookingLine(booking, remaining);
   if (remaining === 0) bookingCountdown = null;
 }, 250); // a quarter-second check keeps the number within a quarter-second of the real time
 
@@ -299,36 +299,25 @@ async function checkPending() {
     // preference it was chosen by. The popup stays open, and cannot be closed, until the person answers.
     const approvalKey = pending ? `approval:${pending.proposal_id || pending.provider}` : null;
     if (pending && approvalKey !== approvalShownFor) {
-      const preference = pending.ride_priority ? `Your saved preference: ${pending.ride_priority} ride. ` : "";
+      // The rider's own saved preference, and the platform the ride was chosen by.
+      const preference = pending.ride_priority ? `${pending.name}'s saved preference: ${pending.ride_priority}. ` : "";
       document.querySelector("#approval-choice").textContent = `${preference}Chosen: ${pending.provider_name || pending.provider}, ₹${pending.price_inr}, ${pending.eta_min} min.`;
-      document.querySelector("#approval-block").hidden = false;
-      document.querySelector("#thinking-card").hidden = false;
-      document.querySelector("#thinking-close").hidden = true;
+      setTaskBlock("#approval-block", true);
     }
-    if (!pending) {
-      document.querySelector("#approval-block").hidden = true;
-      document.querySelector("#thinking-close").hidden = false;
-    }
+    if (!pending && approvalShownFor) setTaskBlock("#approval-block", false);
     approvalShownFor = approvalKey;
-    // A booked ride shows its details in the popup, once per booking.
+    // A booked ride shows its details in the same popup, once per booking. Only the person closes it.
     const bookedKey = booking ? `booked:${booking.reference}` : null;
     if (booking && bookedKey !== confirmShownFor) {
-      document.querySelector("#confirm-title").textContent = "Ride booked (simulated)";
       startBookingCountdown(booking);
-      document.querySelector("#confirm-no").textContent = "Not now";
-      document.querySelector("#confirm-yes").textContent = "Confirm";
-      document.querySelector("#confirm-actions").hidden = true;
-      document.querySelector("#confirm-done").hidden = false;
-      showOverlay("confirm-overlay");
-    }  // a booking popup is closed only by the person, never by a timer or a status check
+      setTaskBlock("#booking-block", true);
+    }
     confirmShownFor = bookedKey;
   } catch (error) { /* the next check will try again */ }
 }
-document.querySelector("#accept-ride").addEventListener("click", () => { document.querySelector("#approval-block").hidden = true; enqueueAsk("yes", speaker.value); });
-document.querySelector("#decline-ride").addEventListener("click", () => { document.querySelector("#approval-block").hidden = true; enqueueAsk("no", speaker.value); });
-document.querySelector("#confirm-yes").addEventListener("click", () => { hideOverlay("confirm-overlay"); enqueueAsk("yes", speaker.value); });
-document.querySelector("#confirm-no").addEventListener("click", () => { hideOverlay("confirm-overlay"); enqueueAsk("no", speaker.value); });
-document.querySelector("#confirm-done").addEventListener("click", () => hideOverlay("confirm-overlay"));
+document.querySelector("#accept-ride").addEventListener("click", () => { setTaskBlock("#approval-block", false); enqueueAsk("yes", speaker.value); });
+document.querySelector("#decline-ride").addEventListener("click", () => { setTaskBlock("#approval-block", false); enqueueAsk("no", speaker.value); });
+document.querySelector("#booking-done").addEventListener("click", () => setTaskBlock("#booking-block", false));
 setInterval(checkPending, 1500);
 
 // Suggested tasks: one click asks Verity as the person currently selected.
@@ -358,7 +347,7 @@ function makeMovable(card) {
     window.addEventListener("pointerup", up);
   });
 }
-["#thinking-card", "#confirm-overlay .overlay-card", "#ride-overlay .overlay-card", "#household-modal .overlay-card", "#question-overlay .overlay-card"].forEach((selector) => {
+["#thinking-card", "#ride-overlay .overlay-card", "#household-modal .overlay-card"].forEach((selector) => {
   const card = document.querySelector(selector);
   if (card) makeMovable(card);
 });
@@ -372,22 +361,29 @@ document.querySelector("#sim-time").addEventListener("change", async (event) => 
 // Live status line: polls what Verity is doing right now, in plain words.
 let progressTimer = null;
 const IDLE_AGENT_TEXT = "Ready. Ask for something, or try the time tick.";
-// A question from Verity is answered with buttons under its message. Each button sends the answer as a message.
-// The question opens as a popup (movable, resizable), with its answers as buttons. Typing an answer also works.
+// A question from Verity is asked inside the "Verity is working" popup, with its answers as buttons.
+// Each button sends the answer as a message. Typing an answer in the box also works.
 function renderQuestion(question) {
   const choices = document.querySelector("#question-choices");
   choices.replaceChildren();
-  if (!question) { hideOverlay("question-overlay"); return; }
+  if (!question) { setTaskBlock("#question-block", false); return; }
   document.querySelector("#question-text").textContent = question.text;
   question.options.forEach((option, index) => {
-    const button = el("button", index === 0 ? "primary" : "secondary", option === "cheapest" ? "Cheapest" : option === "fastest" ? "Fastest" : option);
+    const button = el("button", index === 0 ? "primary" : "secondary", option === "cheapest" ? "Cheapest" : option === "fastest" ? "Fastest" : option === "Yes" ? "Yes" : option === "No" ? "No" : option);
     button.type = "button";
-    button.addEventListener("click", () => { hideOverlay("question-overlay"); enqueueAsk(option, speaker.value); });
+    button.addEventListener("click", () => { setTaskBlock("#question-block", false); enqueueAsk(option, speaker.value); });
     choices.append(button);
   });
-  showOverlay("question-overlay");
+  setTaskBlock("#question-block", true);
 }
-document.querySelector("#question-close").addEventListener("click", () => hideOverlay("question-overlay"));
+
+// Blocks inside the progress popup. The popup cannot be closed while the person still has to answer.
+function setTaskBlock(selector, visible) {
+  document.querySelector(selector).hidden = !visible;
+  const answerNeeded = !document.querySelector("#question-block").hidden || !document.querySelector("#approval-block").hidden;
+  document.querySelector("#thinking-close").hidden = answerNeeded;
+  if (visible) document.querySelector("#thinking-card").hidden = false;
+}
 
 function showThinking() {
   document.querySelector("#thinking-card").hidden = false;

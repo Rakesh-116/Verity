@@ -99,41 +99,25 @@
       </header>
       <p id="thinking-now" class="thinking-now"></p>
       <ol id="thinking-steps" class="thinking-steps"></ol>
-      <div id="approval-block" class="approval-block" hidden>
-        <p id="approval-choice" class="approval-choice"></p>
-        <div class="approval-actions">
-          <button id="accept-ride" class="primary" type="button">Accept</button>
+      <!-- Everything Verity needs from the person for this request appears here, in this one popup. -->
+      <div id="question-block" class="task-block" hidden>
+        <p id="question-text" class="task-text"></p>
+        <div id="question-choices" class="task-actions"></div>
+        <p class="task-note">Or type your answer in the box below.</p>
+      </div>
+      <div id="approval-block" class="task-block" hidden>
+        <p id="approval-choice" class="task-text"></p>
+        <div class="task-actions">
           <button id="decline-ride" class="secondary" type="button">Decline</button>
+          <button id="accept-ride" class="primary" type="button">Accept</button>
         </div>
       </div>
-    </div>
-
-    <div id="confirm-overlay" class="overlay" hidden>
-      <div class="overlay-card confirm-card" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
-        <header class="overlay-head">
-          <h2 id="confirm-title">Confirm the simulated ride</h2>
-        </header>
-        <p id="confirm-text" class="confirm-text"></p>
-        <p class="confirm-note">Simulated booking. No real ride is booked.</p>
-        <div id="confirm-actions" class="confirm-actions">
-          <button id="confirm-no" class="secondary" type="button">Not now</button>
-          <button id="confirm-yes" class="primary" type="button">Confirm</button>
+      <div id="booking-block" class="task-block" hidden>
+        <p id="booking-text" class="task-text"></p>
+        <p class="task-note">Simulated booking. No real ride is booked.</p>
+        <div class="task-actions">
+          <button id="booking-done" class="primary" type="button">Close</button>
         </div>
-        <div id="confirm-done-row" class="confirm-actions">
-          <button id="confirm-done" class="primary" type="button" hidden>Close</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="question-overlay" class="overlay" hidden>
-      <div class="overlay-card question-card" role="dialog" aria-modal="true" aria-labelledby="question-title">
-        <header class="overlay-head">
-          <h2 id="question-title">Verity needs an answer</h2>
-          <button id="question-close" class="close" type="button">Close</button>
-        </header>
-        <p id="question-text" class="confirm-text"></p>
-        <div id="question-choices" class="confirm-actions"></div>
-        <p class="confirm-note">Or type your answer in the box below.</p>
       </div>
     </div>
 
