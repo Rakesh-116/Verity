@@ -13,6 +13,7 @@ from pathlib import Path
 
 
 PROJECT_DIRECTORY = Path(__file__).resolve().parents[1]
+os.environ["GROQ_API_KEY"] = "scripted-test-key"  # a model turn is under test here
 sys.path.insert(0, str(PROJECT_DIRECTORY))
 os.environ.setdefault("AI_PROVIDER", "groq")
 

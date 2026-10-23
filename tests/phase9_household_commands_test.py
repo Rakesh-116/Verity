@@ -16,12 +16,15 @@ from isolated_state import make_isolated_state
 
 
 PROJECT_DIRECTORY = Path(__file__).resolve().parents[1]
+os.environ["GROQ_API_KEY"] = "scripted-test-key"  # a model turn is under test here
 STATE_DIRECTORY = make_isolated_state()
 os.environ["VERITY_STATE_DIR"] = str(STATE_DIRECTORY)
 sys.path.insert(0, str(PROJECT_DIRECTORY / "server"))
 sys.path.insert(0, str(PROJECT_DIRECTORY))
 
 from services.household import authorize, is_action_request, resolve_mentions, set_presence  # noqa: E402
+
+set_presence("amma", "home")  # Amma starts out of the house until 09:00 in the seed; these tests need her home
 
 
 def _ids(text: str) -> list[str]:

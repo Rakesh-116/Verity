@@ -80,9 +80,17 @@ async def presence(request: Request) -> JSONResponse:
     return JSONResponse(await host.set_presence(person_id, value, str(return_at) if return_at else None))
 
 
+async def clock(request: Request) -> JSONResponse:
+    """Developer control: set the simulated house time (HH:MM). Members return home by the clock."""
+    payload = await request.json()
+    sim_time = str(payload.get("sim_time", "")).strip()
+    return JSONResponse(await host.set_clock(sim_time))
+
+
 routes = [
     Route("/api/rides/cancel", cancel_ride, methods=["POST"]),
     Route("/api/presence", presence, methods=["POST"]),
+    Route("/api/clock", clock, methods=["POST"]),
     Route("/api/chat", chat, methods=["POST"]),
     Route("/api/progress", progress, methods=["GET"]),
     Route("/api/rides", rides, methods=["GET"]),

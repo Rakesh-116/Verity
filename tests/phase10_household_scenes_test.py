@@ -30,6 +30,7 @@ def _reset() -> None:
     seed_memory = json.loads((PROJECT_DIRECTORY / "server/state/memory.json").read_text(encoding="utf-8"))
     seed_robot = json.loads((PROJECT_DIRECTORY / "server/state/robot_state.json").read_text(encoding="utf-8"))
     seed_presence = json.loads((PROJECT_DIRECTORY / "server/state/presence.json").read_text(encoding="utf-8"))
+    seed_presence["amma"] = {"presence": "home", "return_at": None}  # these tests need Amma home
     (STATE_DIRECTORY / "home_state.json").write_text(json.dumps(seed_home), encoding="utf-8")
     (STATE_DIRECTORY / "memory.json").write_text(json.dumps(seed_memory), encoding="utf-8")
     (STATE_DIRECTORY / "robot_state.json").write_text(json.dumps(seed_robot), encoding="utf-8")
@@ -40,7 +41,7 @@ def test_ride_makes_the_person_wait_at_the_door_until_booked() -> None:
     scene = apply_tool_result({}, "create_ride_booking_proposal", {"person_id": "amma"}, {"success": True, "person_id": "amma"})
     assert scene["amma"]["spot"] == "front_door" and scene["amma"]["stage"] == "preparing", scene
     booked = apply_tool_result(scene, "book_ride", {"person_id": "amma"}, {"success": True, "person_id": "amma", "provider": "citycab"})
-    assert booked["amma"]["stage"] == "waiting" and "citycab" in booked["amma"]["bubble"], booked
+    assert booked["amma"]["stage"] == "waiting" and booked["amma"]["bubble"] == "Ride booked. Waiting at the door.", booked
     cancelled = apply_tool_result(booked, "cancel_ride_hedge", {"person_id": "amma"}, {"success": True, "person_id": "amma"})
     assert "amma" not in cancelled, cancelled
 

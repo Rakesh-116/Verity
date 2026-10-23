@@ -20,6 +20,7 @@ from simulator.mcp_gateway import MCPGateway, as_bedrock_tools, as_openai_tools,
 from simulator.narration import describe_call, describe_doing
 from services.household import authorize, is_action_request, resolve_mentions, roster as household_roster
 from services.scene import apply_tool_result, scene_summary
+from simulator.scripted_demo import run_scripted
 
 
 SKILL_PATH = PROJECT_DIRECTORY / "skills" / "verity" / "SKILL.md"
@@ -62,11 +63,22 @@ class AgentHost:
         self._progress: dict[str, dict[str, Any]] = {}
         # What each member is doing on screen, derived from confirmed tool results.
         self._scene: dict[str, Any] = {}
+        # A ride waiting for the person's "yes", per session (scripted demo only).
+        self._pending: dict[str, dict[str, Any]] = {}
 
     def progress(self, session_id: str | None) -> dict[str, Any]:
-        """What Verity is doing right now for this session, in plain words."""
+        """What Verity is doing right now for this session, in plain words, and any ride waiting for a yes."""
         state = self._progress.get(session_id or "local", {"busy": False, "current": "", "steps": []})
-        return {"busy": state["busy"], "current": state["current"], "steps": list(state["steps"])}
+        pending = self._pending.get(session_id or "local") or {}
+        waiting = pending if "proposal_id" in pending else None
+        booking = pending.get("booking")
+        return {
+            "busy": state["busy"],
+            "current": state["current"],
+            "steps": list(state["steps"]),
+            "pending": waiting and {"person_id": waiting["person_id"], "name": waiting["name"], "provider": waiting["provider"], "provider_name": waiting.get("provider_name"), "destination": waiting["destination"], "eta_min": waiting.get("eta_min"), "price_inr": waiting.get("price_inr")},
+            "booking": booking,
+        }
 
     async def rides(self) -> dict[str, Any]:
         """Ride request cards, read through MCP like the rest of the dashboard."""
@@ -93,15 +105,63 @@ class AgentHost:
         robot = await self._gateway.call_tool("get_robot_status", {})
         opportunities = await self._gateway.call_tool("get_energy_saving_opportunities", {})
         household = await self._gateway.call_tool("get_household", {})
+        # Someone who is away (by the clock or by a change) has no activity on screen.
+        away = {m["person_id"] for m in (household["output"] or {}).get("members", []) if m.get("presence") == "away"}
+        scene = {person: task for person, task in self._scene.items() if person not in away}
         return {
             "home": home["output"],
             "active_speaker": speaker["output"],
             "robot": robot["output"],
             "proactive": opportunities["output"],
             "household": household["output"],
-            "scene": self._scene,
-            "scene_lines": scene_summary(self._scene, {p: m["display_name"] for p, m in household_roster().items()}),
+            "scene": scene,
+            "mode": await self.mode(),
+            "clock": await self.clock(),
+            "scene_lines": scene_summary(scene, {p: m["display_name"] for p, m in household_roster().items()}),
         }
+
+    @staticmethod
+    def llm_configured() -> bool:
+        """True when a model key or provider is configured. Without one, the scripted demo runs, labelled as such."""
+        settings = AISettings.from_environment()
+        if settings.provider == "groq":
+            return bool(settings.groq_api_key)
+        if settings.provider == "openai":
+            return bool(settings.openai_api_key)
+        return settings.provider == "bedrock"
+
+    async def mode(self) -> str:
+        if not self.llm_configured():
+            return "scripted"
+        return f"ai:{AISettings.from_environment().provider}"
+
+    async def clock(self) -> dict[str, Any]:
+        result = await self._gateway.call_tool("get_sim_time", {})
+        return result["output"] if not result["is_error"] else {"sim_time": None}
+
+    async def set_clock(self, sim_time: str) -> dict[str, Any]:
+        result = await self._gateway.call_tool("set_sim_clock", {"sim_time": sim_time})
+        return result["output"] if not result["is_error"] else {"success": False, "reason": "tool_error"}
+
+    async def _scripted_turn(self, text: str, speaker: str | None, session_id: str | None, trace: list[dict[str, Any]]) -> dict[str, Any]:
+        """Run the labelled no-key demo through the same MCP tools, recording each call like a model turn."""
+        pending = self._pending.setdefault(session_id or "local", {})
+        roster = household_roster()
+
+        def record(name: str, arguments: dict[str, Any], result: dict[str, Any]) -> None:
+            narrated = describe_call(name, arguments, result)
+            trace.append({"kind": "tool", "name": name, "arguments": arguments, "result": result, "say": narrated["text"], "ok": narrated["ok"]})
+            if not result.get("is_error"):
+                self._scene = apply_tool_result(self._scene, name, arguments, result.get("output"))
+
+        async def call(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+            result = await self._gateway.call_tool(name, arguments)
+            record(name, arguments, result)
+            return result["output"] if not result["is_error"] and isinstance(result["output"], dict) else {"success": False, "reason": "tool_error"}
+
+        trace.append({"kind": "user", "text": text})
+        speech = await run_scripted(text, speaker, pending, roster, call)
+        return {"speech": speech, "trace": trace, "mode": "scripted"}
 
     async def set_presence(self, person_id: str, presence: str, return_at: str | None) -> dict[str, Any]:
         """Mark someone home or away through MCP, so the house and the guard agree."""
@@ -147,6 +207,9 @@ class AgentHost:
         if not auth["allowed"]:
             trace.append({"kind": "authorization", "reason": auth["reason"]})
             return {"speech": auth["speech"], "trace": trace}
+
+        if not self.llm_configured():
+            return await self._scripted_turn(text, active_speaker_id, session_id, trace)
 
         history_key = self._history_key(session_id, active_speaker_id)
         history = list(self._session_history.get(history_key, []))

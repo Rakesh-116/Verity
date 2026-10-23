@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from services.household import get_presence, resolve_mentions, roster, set_presence
+from services.household import get_presence, resolve_mentions, roster, set_presence, set_sim_time, sim_now
 from state.store import append_action_log
 
 
@@ -34,3 +34,13 @@ def set_member_presence(person_id: str, presence: str, return_at: str | None = N
     if result.get("success"):
         append_action_log(person_id, "presence", f"Marked {person_id} {presence}.", result)
     return result
+
+
+def get_sim_time() -> dict[str, Any]:
+    """The simulated house time, HH:MM. Members who are away return home when it reaches their return time."""
+    return {"sim_time": sim_now()}
+
+
+def set_sim_clock(sim_time: str) -> dict[str, Any]:
+    """Set the simulated house time (HH:MM). Used by the simulator's developer controls and by tests."""
+    return set_sim_time(sim_time)

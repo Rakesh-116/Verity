@@ -121,3 +121,18 @@ body { padding: 14px; }
 /* Echo: a faster pulse while Verity is thinking about a request. */
 .echo.thinking .echo-ring { animation-duration: .8s; background: #ffd166; }
 .echo.thinking { border-color: #c9a227; color: #ffefb8; }
+
+/* Always-visible mode: judges can see whether a model or the labelled scripted demo answers. */
+.mode-pill { font-size: 12px; padding: 5px 10px; border-radius: 999px; margin: 0; border: 1px solid #5b7fa8; color: #d6e6f8; background: #13233a; }
+.mode-pill.scripted { border-color: #f2c14e; color: #ffe9a8; background: #2a2412; }
+.mode-pill.ai { border-color: #6be5b0; color: #d7fff0; background: #0d2a26; }
+.sim-time-control { font-size: 12px; color: #b8cde6; }
+
+/* Confirmation popup for a simulated ride */
+.confirm-card { width: min(520px, 92vw); }
+.confirm-text { font-size: 18px; margin: 6px 0 10px; }
+.confirm-note { font-size: 13px; color: #9fb6d2; margin: 0 0 16px; }
+.confirm-actions { display: flex; justify-content: flex-end; gap: 10px; }
+.confirm-actions button { font: inherit; font-size: 15px; padding: 9px 16px; border-radius: 8px; border: 1px solid #5b7fa8; background: #13233a; color: #e7f0fb; cursor: pointer; }
+.confirm-actions button.primary { border-color: #6be5b0; background: #0d2a26; color: #d7fff0; }
+.confirm-actions[hidden] { display: none; }

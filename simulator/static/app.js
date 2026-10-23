@@ -81,6 +81,14 @@ async function refreshState() {
   try {
     const response = await fetch("/api/state"), data = await response.json(); if (!response.ok) throw new Error(data.error);
     presenceAway = new Set((data.household?.members || []).filter((m) => m.presence === "away").map((m) => m.person_id));
+    const pill = document.querySelector("#mode-pill");
+    pill.textContent = data.mode === "scripted" ? "Scripted demo · no AI key" : `AI answers: ${String(data.mode || "").replace("ai:", "")}`;
+    pill.className = `mode-pill ${data.mode === "scripted" ? "scripted" : "ai"}`;
+    if (data.clock?.sim_time) {
+      document.querySelector("#sim-clock").textContent = `SIM TIME ${data.clock.sim_time}`;
+      const timeInput = document.querySelector("#sim-time");
+      if (document.activeElement !== timeInput) timeInput.value = data.clock.sim_time;
+    }
     renderHousehold(data.household?.members || []);
     renderDevices(data.home, data.robot, data.proactive); speaker.value = data.active_speaker.person_id;
     const lights = {}; let tvOn = false;
@@ -241,6 +249,44 @@ function renderHouseholdList() {
 document.querySelector("#close-rides").addEventListener("click", () => hideOverlay("ride-overlay"));
 document.querySelector("#ride-open").addEventListener("click", () => showOverlay("ride-overlay"));
 document.querySelector("#close-household").addEventListener("click", () => hideOverlay("household-modal"));
+
+// A ride waiting for a yes shows as a popup on top of the house, with Confirm and Not now.
+let confirmShownFor = null;
+async function checkPending() {
+  try {
+    const response = await fetch(`/api/progress?session_id=${encodeURIComponent(sessionId)}`);
+    const data = await response.json();
+    const pending = data.pending;
+    const booking = data.booking;
+    const key = pending ? `ask:${JSON.stringify(pending)}` : booking ? `booked:${booking.reference}` : null;
+    if (pending && key !== confirmShownFor) {
+      document.querySelector("#confirm-title").textContent = "Confirm the simulated ride";
+      document.querySelector("#confirm-text").textContent = `${pending.provider_name || pending.provider} ride for ${pending.name} to ${pending.destination}. About ${pending.eta_min} min away, ₹${pending.price_inr}.`;
+      document.querySelector("#confirm-actions").hidden = false;
+      document.querySelector("#confirm-done").hidden = true;
+      showOverlay("confirm-overlay");
+    } else if (booking && key !== confirmShownFor) {
+      document.querySelector("#confirm-title").textContent = "Ride booked (simulated)";
+      document.querySelector("#confirm-text").textContent = `${booking.provider} ride for ${booking.name} to ${booking.destination}. About ${booking.eta_min} min away, ₹${booking.price_inr}. Reference ${booking.reference}.`;
+      document.querySelector("#confirm-actions").hidden = true;
+      document.querySelector("#confirm-done").hidden = false;
+      showOverlay("confirm-overlay");
+    } else if (!pending && !booking) {
+      hideOverlay("confirm-overlay");
+    }
+    confirmShownFor = key;
+  } catch (error) { /* the next check will try again */ }
+}
+document.querySelector("#confirm-yes").addEventListener("click", () => { hideOverlay("confirm-overlay"); enqueueAsk("yes", speaker.value); });
+document.querySelector("#confirm-no").addEventListener("click", () => { hideOverlay("confirm-overlay"); enqueueAsk("no", speaker.value); });
+document.querySelector("#confirm-done").addEventListener("click", () => hideOverlay("confirm-overlay"));
+setInterval(checkPending, 1500);
+
+// Developer control for the simulated house time. Members who are away return home when it reaches their time.
+document.querySelector("#sim-time").addEventListener("change", async (event) => {
+  await fetch("/api/clock", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sim_time: event.target.value }) });
+  refreshState();
+});
 
 // Live status line: polls what Verity is doing right now, in plain words.
 let progressTimer = null;

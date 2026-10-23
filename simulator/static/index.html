@@ -18,7 +18,9 @@
         <button class="mode active" data-mode="manual">Manual</button>
         <button class="mode" data-mode="demo">Demo</button>
       </div>
+      <p id="mode-pill" class="mode-pill" title="Which answers this simulator gives">Checking mode…</p>
       <p id="sim-clock" class="debug-only">SIM TIME 06:00</p>
+      <label class="debug-only sim-time-control">Sim time <input id="sim-time" type="time" /></label>
       <button id="ride-open" class="ride-open" type="button" hidden>Ride</button>
     </header>
 
@@ -83,6 +85,23 @@
           <button id="close-rides" class="close" type="button">Close</button>
         </header>
         <div id="rides" class="rides"></div>
+      </div>
+    </div>
+
+    <div id="confirm-overlay" class="overlay" hidden>
+      <div class="overlay-card confirm-card" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+        <header class="overlay-head">
+          <h2 id="confirm-title">Confirm the simulated ride</h2>
+        </header>
+        <p id="confirm-text" class="confirm-text"></p>
+        <p class="confirm-note">Simulated booking. No real ride is booked.</p>
+        <div id="confirm-actions" class="confirm-actions">
+          <button id="confirm-no" class="secondary" type="button">Not now</button>
+          <button id="confirm-yes" class="primary" type="button">Confirm</button>
+        </div>
+        <div id="confirm-done-row" class="confirm-actions">
+          <button id="confirm-done" class="primary" type="button" hidden>Close</button>
+        </div>
       </div>
     </div>
 

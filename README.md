@@ -114,8 +114,15 @@ Start the simulated Alexa+ host (terminal 2), then open
 .\.venv\Scripts\python.exe -m simulator.app
 ```
 
-The screen shows the agent's MCP trace for every turn. Without an LLM key the
-simulator says so and does not invent an action.
+The screen shows what the household is doing and the MCP trace for every turn.
+
+Without an AI key the simulator runs a **labelled scripted demo**: the header says
+"Scripted demo · no AI key". It runs the same MCP tools for a few plain commands:
+"Book Amma a ride to the market" (then a confirmation popup, then the booking),
+"Papa wants to watch TV", and "Help Amma" (a simulated, non-medical massage). For
+anything else it lists what it can do and invents no action. With a key, the model
+chooses the tools. Amma starts out of the house until 09:00 (simulated house clock;
+change it with the debug-only time control).
 
 To run the server over stdio for an MCP client instead:
 

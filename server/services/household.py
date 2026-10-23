@@ -57,10 +57,29 @@ def is_action_request(text: str) -> bool:
     return bool(ACTION_PATTERN.search(text))
 
 
+CLOCK_FILE = "sim_clock.json"
+HHMM = re.compile(r"([01]\d|2[0-3]):[0-5]\d")
+
+
+def sim_now() -> str:
+    """The simulated house time, HH:MM. Only set through set_sim_time, never by the model."""
+    return load_json(CLOCK_FILE)["sim_time"]
+
+
+def set_sim_time(sim_time: str) -> dict[str, Any]:
+    if not HHMM.fullmatch(sim_time):
+        return {"success": False, "reason": "invalid_time", "confirmed_sim_time": sim_now()}
+    save_json(CLOCK_FILE, {"sim_time": sim_time})
+    return {"success": True, "confirmed_sim_time": sim_time}
+
+
 def get_presence(person_id: str) -> dict[str, Any]:
+    """Presence now. An away member returns home by the clock once their return time has passed."""
     entry = load_json(PRESENCE_FILE).get(person_id)
     if entry is None:
         return {"person_id": person_id, "success": False, "reason": "person_not_found"}
+    if entry["presence"] == "away" and entry.get("return_at") and sim_now() >= entry["return_at"]:
+        return {"person_id": person_id, "presence": "home", "return_at": None}
     return {"person_id": person_id, "presence": entry["presence"], "return_at": entry.get("return_at")}
 
 

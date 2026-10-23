@@ -281,9 +281,9 @@
         // The robot's note sits higher so it never covers the person it is helping.
         const x = Math.round(person.x * TILE + TILE / 2), y = Math.round(person.y * TILE + TILE / 2) - (person.id === "housebot" ? 66 : 40);
         c.font = "bold 8px monospace";
-        const width = Math.min(c.measureText(person.bubble).width + 12, 230);
+        const width = Math.min(c.measureText(person.bubble).width + 12, 320);
         c.fillStyle = "#f4f7fb"; c.fillRect(x - width / 2, y - 11, width, 14);
-        c.fillStyle = "#15202e"; c.fillText(person.bubble.slice(0, 40), x - width / 2 + 6, y - 1);
+        c.fillStyle = "#15202e"; c.fillText(person.bubble, x - width / 2 + 6, y - 1);
       }
     }
 

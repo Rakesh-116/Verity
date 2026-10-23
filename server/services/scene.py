@@ -29,7 +29,7 @@ def apply_tool_result(scene: dict[str, Any], name: str, arguments: dict[str, Any
     elif name == "start_ride_hedge" and person:
         _set(updated, person, "ride", FRONT_DOOR, "Waiting at the door. Finding a driver…", "searching")
     elif name == "book_ride" and person:
-        _set(updated, person, "ride", FRONT_DOOR, f"Ride booked with {output.get('provider', 'the app')}. Waiting at the door.", "waiting")
+        _set(updated, person, "ride", FRONT_DOOR, "Ride booked. Waiting at the door.", "waiting")
     elif name == "cancel_ride_hedge" and person:
         updated.pop(person, None)
     elif name == "start_watch" and person:
