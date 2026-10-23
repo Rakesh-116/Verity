@@ -297,7 +297,7 @@ let confirmShownFor = null;
 let bookingCountdown = null;
 function bookingLine(booking, remaining) {
   const when = remaining > 0 ? `Driver arrives in ${remaining} second${remaining === 1 ? "" : "s"} (simulated).` : "Driver has arrived (simulated).";
-  return `${booking.provider} ride for ${booking.name} to ${booking.destination}. ${when} ₹${booking.price_inr}. Reference ${booking.reference}.`;
+  return `${booking.provider} ride for ${booking.name} to ${booking.destination}. ${when} ₹${booking.price_inr}.`;
 }
 function startBookingCountdown(booking) {
   bookingCountdown = { booking, startedAt: Date.now() };

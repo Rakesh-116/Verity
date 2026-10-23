@@ -463,7 +463,7 @@ class AgentHost:
                 return {"success": False, "speech": f"The order was not placed: {placed.get('reason', 'unknown reason')}.", "trace": trace}
             self._drop_approval(key, proposal_id)
             items = ", ".join(item.get("items") or [])
-            return {"success": True, "speech": f"Ordered {items} from {item['provider_name']}. Order {placed.get('confirmed_order_id')} is simulated.", "trace": trace}
+            return {"success": True, "speech": f"Ordered {items} from {item['provider_name']}. It is simulated, so nothing was really bought.", "trace": trace}
 
         approved = await call("approve_ride_booking", {"person_id": person, "proposal_id": proposal_id})
         if not approved.get("success"):
