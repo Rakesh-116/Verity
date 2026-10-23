@@ -163,6 +163,12 @@ body { padding: 14px; }
 .thinking-head .close { font: inherit; font-size: 18px; line-height: 1; padding: 0 8px; border-radius: 6px; border: 1px solid #5b7fa8; background: #13233a; color: #e7f0fb; cursor: pointer; }
 .thinking-now { margin: 0 0 6px; font-size: 15px; color: #e7f0fb; }
 .thinking-steps { margin: 0; padding-left: 20px; font-size: 13px; display: flex; flex-direction: column; gap: 3px; }
+.approval-block { margin-top: 10px; padding-top: 10px; border-top: 1px solid #2c4a6e; }
+.approval-block[hidden] { display: none; }
+.approval-choice { margin: 0 0 8px; font-size: 14px; color: #e7f0fb; }
+.approval-actions { display: flex; justify-content: flex-end; gap: 10px; }
+.approval-actions button { font: inherit; font-size: 15px; padding: 9px 16px; border-radius: 8px; border: 1px solid #5b7fa8; background: #13233a; color: #e7f0fb; cursor: pointer; }
+.approval-actions button.primary { border-color: #6be5b0; background: #0d2a26; color: #d7fff0; }
 .thinking-steps li.ok { color: #bff5d8; }
 .thinking-steps li.fail { color: #ffb4a0; }
 

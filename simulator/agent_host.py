@@ -141,7 +141,7 @@ class AgentHost:
             "busy": state["busy"],
             "current": state["current"],
             "steps": list(state["steps"]),
-            "pending": waiting and {"person_id": waiting["person_id"], "name": waiting["name"], "provider": waiting["provider"], "provider_name": waiting.get("provider_name"), "destination": waiting["destination"], "pickup_seconds": waiting.get("pickup_seconds"), "price_inr": waiting.get("price_inr")},
+            "pending": waiting and {"person_id": waiting["person_id"], "name": waiting["name"], "provider": waiting["provider"], "provider_name": waiting.get("provider_name"), "destination": waiting["destination"], "pickup_seconds": waiting.get("pickup_seconds"), "price_inr": waiting.get("price_inr"), "eta_min": waiting.get("eta_min"), "ride_priority": waiting.get("ride_priority")},
             "booking": booking,
         }
 
@@ -251,8 +251,11 @@ class AgentHost:
                 quote = output.get("quote") or {}
                 person = output.get("person_id") or event["arguments"].get("person_id")
                 provider = quote.get("provider") or event["arguments"].get("provider", "")
+                # The saved preference this ride was chosen by, from the comparison in the same turn (None if not saved).
+                priority = next((e["result"]["output"].get("ride_priority") for e in trace if e.get("kind") == "tool" and e["name"] == "compare_ride_options" and isinstance(e["result"].get("output"), dict)), None)
                 pending.clear()
                 pending.update({
+                    "ride_priority": priority,
                     "proposal_id": output["proposal_id"],
                     "person_id": person,
                     "name": roster.get(person, {}).get("display_name", person),

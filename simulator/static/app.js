@@ -295,16 +295,19 @@ async function checkPending() {
     const data = await response.json();
     const pending = data.pending;
     const booking = data.booking;
-    // A ride waiting for approval opens in the popup with Accept and Reject. It stays open until the person answers.
-    const approvalKey = pending ? `approval:${pending.provider}:${pending.destination}:${pending.price_inr}` : null;
+    // A ride waiting for approval shows Accept and Decline in the "Verity is working" popup, with the saved
+    // preference it was chosen by. The popup stays open, and cannot be closed, until the person answers.
+    const approvalKey = pending ? `approval:${pending.proposal_id || pending.provider}` : null;
     if (pending && approvalKey !== approvalShownFor) {
-      document.querySelector("#confirm-title").textContent = "Approve this ride?";
-      document.querySelector("#confirm-text").textContent = `${pending.provider_name || pending.provider} ride for ${pending.name} to ${pending.destination}, ₹${pending.price_inr}.`;
-      document.querySelector("#confirm-no").textContent = "Reject";
-      document.querySelector("#confirm-yes").textContent = "Accept";
-      document.querySelector("#confirm-actions").hidden = false;
-      document.querySelector("#confirm-done").hidden = true;
-      showOverlay("confirm-overlay");
+      const preference = pending.ride_priority ? `Your saved preference: ${pending.ride_priority} ride. ` : "";
+      document.querySelector("#approval-choice").textContent = `${preference}Chosen: ${pending.provider_name || pending.provider}, ₹${pending.price_inr}, ${pending.eta_min} min.`;
+      document.querySelector("#approval-block").hidden = false;
+      document.querySelector("#thinking-card").hidden = false;
+      document.querySelector("#thinking-close").hidden = true;
+    }
+    if (!pending) {
+      document.querySelector("#approval-block").hidden = true;
+      document.querySelector("#thinking-close").hidden = false;
     }
     approvalShownFor = approvalKey;
     // A booked ride shows its details in the popup, once per booking.
@@ -321,6 +324,8 @@ async function checkPending() {
     confirmShownFor = bookedKey;
   } catch (error) { /* the next check will try again */ }
 }
+document.querySelector("#accept-ride").addEventListener("click", () => { document.querySelector("#approval-block").hidden = true; enqueueAsk("yes", speaker.value); });
+document.querySelector("#decline-ride").addEventListener("click", () => { document.querySelector("#approval-block").hidden = true; enqueueAsk("no", speaker.value); });
 document.querySelector("#confirm-yes").addEventListener("click", () => { hideOverlay("confirm-overlay"); enqueueAsk("yes", speaker.value); });
 document.querySelector("#confirm-no").addEventListener("click", () => { hideOverlay("confirm-overlay"); enqueueAsk("no", speaker.value); });
 document.querySelector("#confirm-done").addEventListener("click", () => hideOverlay("confirm-overlay"));
