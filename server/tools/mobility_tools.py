@@ -3,7 +3,7 @@
 from typing import Any
 
 from providers.ride_simulated import SimulatedRideProvider
-from services.approval_store import approve_proposal, consume_approved_proposal, create_proposal
+from services.approval_store import approve_proposal, consume_approved_proposal, create_proposal, decline_proposal
 from services.comparison_engine import rank_quotes
 from services.ride_value import choose_ride
 from services.provenance import simulated_provenance
@@ -88,6 +88,14 @@ def approve_ride_booking(person_id: str, proposal_id: str) -> dict[str, Any]:
     result = approve_proposal(person_id, proposal_id, "ride_booking")
     if result.get("success"):
         append_action_log(person_id, "mobility", f"Approved ride proposal {proposal_id}.", result)
+    return result
+
+
+def decline_ride_booking(person_id: str, proposal_id: str) -> dict[str, Any]:
+    """The person declined this ride proposal. Nothing is booked, and the proposal is cancelled."""
+    result = decline_proposal(person_id, proposal_id, "ride_booking")
+    if result.get("success"):
+        append_action_log(person_id, "mobility", f"Declined ride proposal {proposal_id}.", result)
     return result
 
 

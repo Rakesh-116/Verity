@@ -160,21 +160,43 @@ class AgentHost:
         self._returns: dict[str, float] = {}
         # A ride waiting for the person's "yes", per session (scripted demo only).
         self._pending: dict[str, dict[str, Any]] = {}
+        # Rides and orders waiting for the person's decision, per session, keyed by proposal id.
+        self._approvals: dict[str, dict[str, dict[str, Any]]] = {}
         # Set when the last model answer came from the fallback provider, so the page can say so.
         self._last_fallback: str | None = None
 
+    def _open_approvals(self, session_id: str | None) -> list[dict[str, Any]]:
+        """Every ride or order waiting for the person's decision in this session, oldest first."""
+        key = session_id or "local"
+        items = list(self._approvals.get(key, {}).values())
+        scripted = self._pending.get(key, {})
+        if "proposal_id" in scripted and scripted["proposal_id"] not in {item["proposal_id"] for item in items}:
+            items.insert(0, {
+                "proposal_id": scripted["proposal_id"], "kind": "ride", "person_id": scripted.get("person_id"),
+                "name": scripted.get("name"), "provider": scripted.get("provider"), "provider_name": scripted.get("provider_name"),
+                "destination": scripted.get("destination"), "price_inr": scripted.get("price_inr"), "eta_min": scripted.get("eta_min"),
+                "pickup_seconds": scripted.get("pickup_seconds"), "ride_priority": scripted.get("ride_priority"),
+                "distance_km": scripted.get("distance_km"), "choice_reason": scripted.get("choice_reason"),
+            })
+        return items
+
+    def _drop_approval(self, session_id: str | None, proposal_id: str) -> None:
+        key = session_id or "local"
+        self._approvals.get(key, {}).pop(proposal_id, None)
+        if self._pending.get(key, {}).get("proposal_id") == proposal_id:
+            self._pending[key].pop("proposal_id", None)
+
     def progress(self, session_id: str | None) -> dict[str, Any]:
-        """What Verity is doing right now for this session, in plain words, and any ride waiting for a yes."""
+        """What Verity is doing right now for this session, and every ride or order waiting for a decision."""
         state = self._progress.get(session_id or "local", {"busy": False, "current": "", "steps": []})
-        pending = self._pending.get(session_id or "local") or {}
-        waiting = pending if "proposal_id" in pending else None
-        booking = pending.get("booking")
+        approvals = self._open_approvals(session_id)
         return {
             "busy": state["busy"],
             "current": state["current"],
             "steps": list(state["steps"]),
-            "pending": waiting and {"person_id": waiting["person_id"], "name": waiting["name"], "provider": waiting["provider"], "provider_name": waiting.get("provider_name"), "destination": waiting["destination"], "pickup_seconds": waiting.get("pickup_seconds"), "price_inr": waiting.get("price_inr"), "eta_min": waiting.get("eta_min"), "ride_priority": waiting.get("ride_priority"), "distance_km": waiting.get("distance_km"), "choice_reason": waiting.get("choice_reason")},
-            "booking": booking,
+            "approvals": approvals,
+            "pending": approvals[0] if approvals else None,
+            "booking": self._pending.get(session_id or "local", {}).get("booking"),
         }
 
     async def rides(self) -> dict[str, Any]:
@@ -227,7 +249,7 @@ class AgentHost:
                 result["speech"] = " ".join(sentences[:-1] + [question_text]).strip()
         # "Shall I book CityCab?" is not a booking until a proposal exists. Create the proposal now, so the approval
         # popup carries the decision. Nothing is booked: the person still accepts or declines.
-        if compared and last.endswith("?") and BOOKING_QUESTION.search(last) and "proposal_id" not in self._pending.get(session_id or "local", {}):
+        if compared and last.endswith("?") and BOOKING_QUESTION.search(last):
             quotes = [q for q in compared.get("quotes", []) if q.get("provider")]
             chosen = next((q for q in quotes if PROVIDER_NAMES.get(q["provider"], q["provider"]).lower() in last.lower()), None)
             chosen = chosen or next((q for q in quotes if q["ride_id"] == compared.get("recommended_ride_id")), None)
@@ -298,8 +320,8 @@ class AgentHost:
         }
 
     def _track_ride_confirmation(self, session_id: str | None, trace: list[dict[str, Any]]) -> None:
-        """A ride the model proposed waits for a yes, the same as the scripted demo: the page shows it as a popup."""
-        pending = self._pending.setdefault(session_id or "local", {})
+        """Each ride or order the model proposed waits for a decision, shown as its own card in the popup."""
+        approvals = self._approvals.setdefault(session_id or "local", {})
         roster = household_roster()
         for event in trace:
             if event.get("kind") != "tool" or event["result"].get("is_error"):
@@ -313,12 +335,9 @@ class AgentHost:
                 provider = quote.get("provider") or event["arguments"].get("provider", "")
                 # The saved preference this ride was chosen by, from the comparison in the same turn (None if not saved).
                 comparison = next((e["result"]["output"] for e in trace if e.get("kind") == "tool" and e["name"] == "compare_ride_options" and isinstance(e["result"].get("output"), dict)), {})
-                pending.clear()
-                pending.update({
-                    "ride_priority": comparison.get("ride_priority"),
-                    "choice_reason": comparison.get("recommendation_reason") if comparison.get("recommended_ride_id") == quote.get("ride_id") else None,
-                    "distance_km": comparison.get("distance_km"),
+                approvals[output["proposal_id"]] = {
                     "proposal_id": output["proposal_id"],
+                    "kind": "ride",
                     "person_id": person,
                     "name": roster.get(person, {}).get("display_name", person),
                     "provider": provider,
@@ -326,9 +345,78 @@ class AgentHost:
                     "destination": quote.get("destination") or event["arguments"].get("destination", ""),
                     "eta_min": quote.get("eta_minutes"),
                     "price_inr": quote.get("price_inr"),
-                })
-            elif event["name"] in {"approve_ride_booking", "book_ride"} and output.get("proposal_id") == pending.get("proposal_id"):
-                pending.clear()
+                    "ride_priority": comparison.get("ride_priority"),
+                    "choice_reason": comparison.get("recommendation_reason") if comparison.get("recommended_ride_id") == quote.get("ride_id") else None,
+                    "distance_km": comparison.get("distance_km"),
+                }
+            elif event["name"] == "create_order_proposal":
+                person = output.get("person_id") or event["arguments"].get("person_id")
+                provider = output.get("provider") or event["arguments"].get("provider", "")
+                approvals[output["proposal_id"]] = {
+                    "proposal_id": output["proposal_id"],
+                    "kind": "order",
+                    "person_id": person,
+                    "name": roster.get(person, {}).get("display_name", person),
+                    "provider": provider,
+                    "provider_name": PROVIDER_NAMES.get(provider, provider),
+                    "items": output.get("items") or event["arguments"].get("items", []),
+                }
+            elif event["name"] == "book_ride" and output.get("proposal_id") in approvals:
+                gone = approvals.pop(output["proposal_id"])
+                self._pending.setdefault(session_id or "local", {})["booking"] = {
+                    "provider": gone.get("provider_name"), "name": gone.get("name"), "destination": gone.get("destination"),
+                    "pickup_seconds": output.get("pickup_seconds_demo"), "price_inr": gone.get("price_inr"), "reference": output.get("confirmed_booking_id"),
+                }
+            elif event["name"] in {"place_order", "decline_ride_booking", "decline_order"}:
+                approvals.pop(output.get("proposal_id"), None)
+
+    async def decide(self, session_id: str | None, proposal_id: str, decision: str) -> dict[str, Any]:
+        """Accept or decline one waiting ride or order. Each acts only on its own proposal, through the same tools."""
+        key = session_id or "local"
+        item = next((a for a in self._open_approvals(key) if a["proposal_id"] == proposal_id), None)
+        if item is None:
+            return {"success": False, "speech": "That is no longer waiting for an answer.", "trace": []}
+        person, trace = item["person_id"], []
+
+        async def call(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+            result = await self._gateway.call_tool(name, arguments)
+            output = result.get("output") if isinstance(result.get("output"), dict) else {}
+            if result.get("is_error"):
+                output = {"success": False, "reason": "tool_error"}
+            trace.append({"kind": "tool", "name": name, "arguments": arguments, "result": {"is_error": bool(result.get("is_error")), "output": output}, "say": "", "ok": output.get("success") is True})
+            return output
+
+        if decision == "decline":
+            name = "decline_ride_booking" if item["kind"] == "ride" else "decline_order"
+            output = await call(name, {"person_id": person, "proposal_id": proposal_id})
+            if output.get("success") or output.get("reason") in {"proposal_cancelled", "proposal_executed", "proposal_not_found"}:
+                self._drop_approval(key, proposal_id)
+            speech = "Declined. Nothing was booked." if item["kind"] == "ride" else "Declined. Nothing was ordered."
+            return {"success": bool(output.get("success")), "speech": speech, "trace": trace}
+
+        if item["kind"] == "order":
+            approved = await call("approve_order", {"person_id": person, "proposal_id": proposal_id})
+            if not approved.get("success"):
+                return {"success": False, "speech": f"I could not confirm the order: {approved.get('reason', 'unknown reason')}.", "trace": trace}
+            placed = await call("place_order", {"person_id": person, "proposal_id": proposal_id})
+            if not placed.get("success"):
+                return {"success": False, "speech": f"The order was not placed: {placed.get('reason', 'unknown reason')}.", "trace": trace}
+            self._drop_approval(key, proposal_id)
+            items = ", ".join(item.get("items") or [])
+            return {"success": True, "speech": f"Ordered {items} from {item['provider_name']}. Order {placed.get('confirmed_order_id')} is simulated.", "trace": trace}
+
+        approved = await call("approve_ride_booking", {"person_id": person, "proposal_id": proposal_id})
+        if not approved.get("success"):
+            return {"success": False, "speech": f"I could not confirm the ride: {approved.get('reason', 'unknown reason')}.", "trace": trace}
+        booked = await call("book_ride", {"person_id": person, "proposal_id": proposal_id})
+        if not booked.get("success"):
+            return {"success": False, "speech": f"The ride was not booked: {booked.get('reason', 'unknown reason')}.", "trace": trace}
+        self._drop_approval(key, proposal_id)
+        booking = {"provider": item["provider_name"], "name": item["name"], "destination": item["destination"], "pickup_seconds": booked.get("pickup_seconds_demo"), "price_inr": item.get("price_inr"), "reference": booked.get("confirmed_booking_id")}
+        self._pending.setdefault(key, {})["booking"] = booking
+        self._scene = apply_tool_result(self._scene, "book_ride", {"person_id": person, "proposal_id": proposal_id}, booked)
+        speech = f"Booked. A simulated {item['provider_name']} ride for {item['name']} to {item['destination']}. Driver arrives in about {booking['pickup_seconds']} seconds."
+        return {"success": True, "speech": speech, "trace": trace}
 
     @staticmethod
     def llm_configured() -> bool:
@@ -465,11 +553,20 @@ class AgentHost:
         await self._tick_household()
         presence_note = await self._presence_from_speech(text, active_speaker_id, trace)
         pending = self._pending.get(session_id or "local", {})
-        waiting = "proposal_id" in pending
-        # A plain yes or no answers the ride on screen. The app handles it, the same way with or without a model.
+        open_items = self._open_approvals(session_id)
+        waiting = bool(open_items)
+        # A plain yes or no answers the one ride or order on screen. With several waiting, each is decided in its own card.
+        if waiting and is_confirmation(text):
+            if len(open_items) > 1:
+                return {"speech": f"{len(open_items)} things are waiting for you. Accept or decline each one in its card.", "trace": trace}
+            decision = "decline" if re.match(r"^\s*(no|nope|not now|cancel)\b", text, re.I) else "accept"
+            decided = await self.decide(session_id, open_items[0]["proposal_id"], decision)
+            return {"speech": decided["speech"], "trace": trace + decided["trace"]}
         awaiting = "awaiting" in pending
-        if (waiting and is_confirmation(text)) or (awaiting and is_preference_answer(text)) or not self.llm_configured():
-            return await self._finish_turn(await self._scripted_turn(text, active_speaker_id, session_id, trace), text, active_speaker_id, session_id)
+        if (awaiting and is_preference_answer(text)) or not self.llm_configured():
+            scripted = await self._finish_turn(await self._scripted_turn(text, active_speaker_id, session_id, trace), text, active_speaker_id, session_id)
+            self._track_ride_confirmation(session_id, scripted["trace"])
+            return scripted
 
         history_key = self._history_key(session_id, active_speaker_id)
         history = list(self._session_history.get(history_key, []))

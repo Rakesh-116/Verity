@@ -19,12 +19,14 @@ from tools.context_tools import (
     set_active_speaker,
 )
 from tools.mobility_tools import (
+    decline_ride_booking,
     approve_ride_booking,
     book_ride,
     compare_ride_options,
     create_ride_booking_proposal,
 )
 from tools.delivery_tools import (
+    decline_order,
     approve_order,
     compare_item_prices,
     create_order_proposal,
@@ -72,6 +74,8 @@ for tool in (
     create_ride_booking_proposal,
     approve_ride_booking,
     book_ride,
+    decline_ride_booking,
+    decline_order,
     compare_item_prices,
     create_order_proposal,
     approve_order,

@@ -289,7 +289,7 @@ document.querySelector("#ride-open").addEventListener("click", () => showOverlay
 document.querySelector("#close-household").addEventListener("click", () => hideOverlay("household-modal"));
 
 // A ride waiting for a yes shows as a popup on top of the house, with Confirm and Not now.
-let confirmShownFor = null, approvalShownFor = null;
+let confirmShownFor = null;
 // The booking popup counts the driver's wait down, second by second, and then says the driver has arrived.
 let bookingCountdown = null;
 function bookingLine(booking, remaining) {
@@ -314,19 +314,8 @@ async function checkPending() {
     const data = await response.json();
     const pending = data.pending;
     const booking = data.booking;
-    // A ride waiting for approval shows Accept and Decline in the "Verity is working" popup, with the saved
-    // preference it was chosen by. The popup stays open, and cannot be closed, until the person answers.
-    const approvalKey = pending ? `approval:${pending.proposal_id || pending.provider}` : null;
-    if (pending && approvalKey !== approvalShownFor) {
-      // The rider's own saved preference, and the platform the ride was chosen by.
-      const preference = pending.ride_priority ? `${pending.name}'s saved preference: ${pending.ride_priority}. ` : "";
-      const trip = pending.distance_km ? `, ${pending.distance_km} km from the house` : "";
-      const why = pending.choice_reason ? ` ${pending.choice_reason}` : "";
-      document.querySelector("#approval-choice").textContent = `${preference}Chosen: ${pending.provider_name || pending.provider}, ₹${pending.price_inr}, ${pending.eta_min} min${trip}.${why}`;
-      setTaskBlock("#approval-block", true);
-    }
-    if (!pending && approvalShownFor) setTaskBlock("#approval-block", false);
-    approvalShownFor = approvalKey;
+    // Every ride or order waiting for a decision is its own card in the "Verity is working" popup.
+    renderApprovals(data.approvals || []);
     // A booked ride shows its details in the same popup, once per booking. Only the person closes it.
     const bookedKey = booking ? `booked:${booking.reference}` : null;
     if (booking && bookedKey !== confirmShownFor) {
@@ -336,8 +325,6 @@ async function checkPending() {
     confirmShownFor = bookedKey;
   } catch (error) { /* the next check will try again */ }
 }
-document.querySelector("#accept-ride").addEventListener("click", () => { setTaskBlock("#approval-block", false); enqueueAsk("yes", speaker.value); });
-document.querySelector("#decline-ride").addEventListener("click", () => { setTaskBlock("#approval-block", false); enqueueAsk("no", speaker.value); });
 document.querySelector("#booking-done").addEventListener("click", () => setTaskBlock("#booking-block", false));
 setInterval(checkPending, 1500);
 
@@ -401,9 +388,57 @@ function renderQuestion(question) {
 // Blocks inside the progress popup. The popup cannot be closed while the person still has to answer.
 function setTaskBlock(selector, visible) {
   document.querySelector(selector).hidden = !visible;
-  const answerNeeded = !document.querySelector("#question-block").hidden || !document.querySelector("#approval-block").hidden;
+  const answerNeeded = !document.querySelector("#question-block").hidden || !document.querySelector("#approval-list").hidden;
   document.querySelector("#thinking-close").hidden = answerNeeded;
   if (visible) document.querySelector("#thinking-card").hidden = false;
+}
+
+// One card per waiting ride or order. Accept and Decline send that card's proposal id, and only that proposal changes.
+const approvalCards = new Map();
+function approvalText(approval) {
+  if (approval.kind === "order") return `Order for ${approval.name} from ${approval.provider_name}: ${(approval.items || []).join(", ")}.`;
+  const preference = approval.ride_priority ? `${approval.name}'s saved preference: ${approval.ride_priority}. ` : "";
+  const trip = approval.distance_km ? `, ${approval.distance_km} km from the house` : "";
+  const why = approval.choice_reason ? ` ${approval.choice_reason}` : "";
+  return `${approval.name}'s ride. ${preference}Chosen: ${approval.provider_name || approval.provider}, ₹${approval.price_inr}, ${approval.eta_min} min${trip}.${why}`;
+}
+function renderApprovals(approvals) {
+  const list = document.querySelector("#approval-list");
+  const waiting = new Set(approvals.map((approval) => approval.proposal_id));
+  approvalCards.forEach((card, proposalId) => {
+    if (!waiting.has(proposalId)) { card.remove(); approvalCards.delete(proposalId); }
+  });
+  approvals.forEach((approval) => {
+    if (approvalCards.has(approval.proposal_id)) return;
+    const card = el("div", "task-block approval-card");
+    card.dataset.proposal = approval.proposal_id;
+    card.append(el("p", "task-text", approvalText(approval)));
+    const actions = el("div", "task-actions");
+    const decline = el("button", "secondary", "Decline");
+    const accept = el("button", "primary", "Accept");
+    decline.type = accept.type = "button";
+    decline.addEventListener("click", () => decideApproval(approval.proposal_id, "decline"));
+    accept.addEventListener("click", () => decideApproval(approval.proposal_id, "accept"));
+    actions.append(decline, accept);
+    card.append(actions);
+    approvalCards.set(approval.proposal_id, card);
+    list.append(card);
+  });
+  list.hidden = approvals.length === 0;
+  if (approvals.length) document.querySelector("#thinking-card").hidden = false;
+  document.querySelector("#thinking-close").hidden = approvals.length > 0 || !document.querySelector("#question-block").hidden;
+}
+async function decideApproval(proposalId, decision) {
+  approvalCards.get(proposalId)?.querySelectorAll("button").forEach((button) => { button.disabled = true; });
+  try {
+    const response = await fetch("/api/approval", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ session_id: sessionId, proposal_id: proposalId, decision }) });
+    const result = await response.json();
+    if (result.speech) { addMessage("assistant", "Verity", result.speech); document.querySelector("#reply").textContent = result.speech; }
+  } catch (error) {
+    // The card stays, so the person can try again.
+    approvalCards.get(proposalId)?.querySelectorAll("button").forEach((button) => { button.disabled = false; });
+  }
+  await checkPending();
 }
 
 function showThinking() {

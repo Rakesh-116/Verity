@@ -61,6 +61,7 @@
         <button type="button" class="suggest" data-say="Book Amma a ride to the market" data-speaker="son">Book Amma a ride to the market</button>
         <button type="button" class="suggest" data-say="Papa wants to watch TV" data-speaker="papa">Papa wants to watch TV</button>
         <button type="button" class="suggest" data-say="Help Amma" data-speaker="son">Help Amma with a massage</button>
+        <button type="button" class="suggest" data-say="order milk and bread" data-speaker="amma">Order milk and bread</button>
       </div>
       <p class="notice">Voice is optional. Simulated Alexa+ uses a generic browser voice, never an Alexa voice imitation.</p>
       <span id="status" class="debug-only">Loading state…</span>
@@ -105,13 +106,8 @@
         <div id="question-choices" class="task-actions"></div>
         <p class="task-note">Or type your answer in the box below.</p>
       </div>
-      <div id="approval-block" class="task-block" hidden>
-        <p id="approval-choice" class="task-text"></p>
-        <div class="task-actions">
-          <button id="decline-ride" class="secondary" type="button">Decline</button>
-          <button id="accept-ride" class="primary" type="button">Accept</button>
-        </div>
-      </div>
+      <!-- One card per ride or order waiting for a decision. Each card has its own Accept and Decline. -->
+      <div id="approval-list" class="approval-list" hidden></div>
       <div id="booking-block" class="task-block" hidden>
         <p id="booking-text" class="task-text"></p>
         <p class="task-note">Simulated booking. No real ride is booked.</p>

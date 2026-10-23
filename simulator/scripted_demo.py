@@ -12,9 +12,10 @@ from typing import Any, Awaitable, Callable
 from services.household import resolve_mentions
 
 
-PROVIDER_NAMES = {"quickride": "QuickRide", "citycab": "CityCab", "rideco": "RideCo"}
+PROVIDER_NAMES = {"quickride": "QuickRide", "citycab": "CityCab", "rideco": "RideCo", "dashmart": "DashMart", "quickmart": "QuickMart", "fooddash": "FoodDash", "shopnest": "ShopNest", "megashop": "MegaShop"}
 RIDE = re.compile(r"\bbook (?P<who>\w+) a ride to (?P<where>[\w ]+?)\s*[.!?]?$", re.IGNORECASE)
 WATCH = re.compile(r"\bwatch (tv|the tv|a movie|a film)\b", re.IGNORECASE)
+ORDER = re.compile(r"^\s*order\s+(?P<items>.+?)\s*[.!?]?$", re.IGNORECASE)
 MASSAGE = re.compile(r"\b(massag\w*|help)\b", re.IGNORECASE)
 CANCEL = re.compile(r"^(no|no thanks|cancel|cancel it|don'?t|do not|don'?t book it)[.!]?$", re.IGNORECASE)
 PREFERENCE = re.compile(r"^(the )?(cheapest|cheaper|fastest|faster)( one| ride| option)?[.!]?$", re.IGNORECASE)
@@ -126,6 +127,23 @@ async def run_scripted(
         provider = PROVIDER_NAMES.get(quote["provider"], quote["provider"])
         pending.update({"proposal_id": proposal["proposal_id"], "person_id": person_id, "name": who, "provider": quote["provider"], "provider_name": provider, "destination": where, "pickup_seconds": quote.get("pickup_seconds_demo"), "price_inr": quote["price_inr"]})
         return f"I'll arrange a simulated {provider} ride for {who} to {where}. Shall I confirm it?"
+
+    order = ORDER.match(stripped)
+    if order:
+        if speaker is None:
+            return "Tell me who is ordering."
+        item = order.group("items").strip()
+        comparison = await call("compare_item_prices", {"person_id": speaker, "item": item})
+        quotes = comparison.get("quotes") or []
+        if comparison.get("success") is False or not quotes:
+            return f"I could not find {item} to order: {comparison.get('reason', 'no prices')}."
+        # The cheapest provider is proposed; the person sees the price and accepts or declines in the popup.
+        quote = quotes[0]
+        proposal = await call("create_order_proposal", {"person_id": speaker, "provider": quote["provider"], "items": [item]})
+        if not proposal.get("success"):
+            return f"I could not prepare the order: {proposal.get('reason', 'unknown reason')}."
+        provider = PROVIDER_NAMES.get(quote["provider"], quote["provider"])
+        return f"I've prepared {item} from {provider} for ₹{quote['price_inr']} for your approval. Accept or decline it in the popup."
 
     if WATCH.search(stripped):
         if speaker is None:

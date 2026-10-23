@@ -69,6 +69,16 @@ async def cancel_ride(request: Request) -> JSONResponse:
     return JSONResponse(await host.cancel_ride(person_id, hedge_id))
 
 
+async def approval(request: Request) -> JSONResponse:
+    """Accept or decline one waiting ride or order. The proposal id says which one; the text 'yes' is not used."""
+    payload = await request.json()
+    proposal_id = str(payload.get("proposal_id", "")).strip()
+    decision = str(payload.get("decision", "")).strip()
+    if not proposal_id or decision not in {"accept", "decline"}:
+        return JSONResponse({"error": "proposal_id and decision (accept or decline) are required"}, status_code=400)
+    return JSONResponse(await host.decide(payload.get("session_id"), proposal_id, decision))
+
+
 async def presence(request: Request) -> JSONResponse:
     """Mark a household member home or away. Away needs HH:MM as the return time."""
     payload = await request.json()
@@ -90,6 +100,7 @@ async def clock(request: Request) -> JSONResponse:
 routes = [
     Route("/api/rides/cancel", cancel_ride, methods=["POST"]),
     Route("/api/presence", presence, methods=["POST"]),
+    Route("/api/approval", approval, methods=["POST"]),
     Route("/api/clock", clock, methods=["POST"]),
     Route("/api/chat", chat, methods=["POST"]),
     Route("/api/progress", progress, methods=["GET"]),

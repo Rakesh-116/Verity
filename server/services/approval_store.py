@@ -85,3 +85,20 @@ def consume_approved_proposal(person_id: str, proposal_id: str, domain: str) -> 
     proposal["executed_at"] = datetime.now(UTC).isoformat()
     save_json(PENDING_ACTIONS_FILE, store)
     return proposal, None
+
+
+def decline_proposal(person_id: str, proposal_id: str, domain: str) -> dict[str, Any]:
+    """Record that the person declined one pending proposal. Nothing is executed; the proposal is cancelled."""
+    store = load_json(PENDING_ACTIONS_FILE)
+    proposal = store["proposals"].get(proposal_id)
+    if proposal is None or proposal["domain"] != domain:
+        return {"proposal_id": proposal_id, "success": False, "reason": "proposal_not_found"}
+    if proposal["person_id"] != person_id:
+        return {"proposal_id": proposal_id, "success": False, "reason": "proposal_owner_mismatch"}
+    if proposal["status"] != "pending_approval":
+        return {"proposal_id": proposal_id, "success": False, "reason": f"proposal_{proposal['status']}"}
+    check_transition(PROPOSAL_TRANSITIONS, proposal["status"], "cancelled")
+    proposal["status"] = "cancelled"
+    proposal["cancelled_at"] = datetime.now(UTC).isoformat()
+    save_json(PENDING_ACTIONS_FILE, store)
+    return {"proposal_id": proposal_id, "success": True, "confirmed_status": "cancelled"}

@@ -3,7 +3,7 @@
 from typing import Any
 
 from providers.delivery_simulated import SimulatedDeliveryProvider
-from services.approval_store import approve_proposal, consume_approved_proposal, create_proposal
+from services.approval_store import approve_proposal, consume_approved_proposal, create_proposal, decline_proposal
 from services.comparison_engine import rank_quotes
 from services.provenance import simulated_provenance
 from state import people_db
@@ -54,6 +54,14 @@ def create_order_proposal(person_id: str, provider: str, items: list[str]) -> di
     proposal = create_proposal(person_id, "delivery_order", {"provider": provider, "items": items})
     result = {"person_id": person_id, "success": True, "proposal_id": proposal["proposal_id"], "status": proposal["status"], "provider": provider, "items": items}
     append_action_log(person_id, "delivery", f"Created pending {provider} order proposal.", result)
+    return result
+
+
+def decline_order(person_id: str, proposal_id: str) -> dict[str, Any]:
+    """The person declined this order proposal. Nothing is ordered, and the proposal is cancelled."""
+    result = decline_proposal(person_id, proposal_id, "delivery_order")
+    if result.get("success"):
+        append_action_log(person_id, "delivery", f"Declined order proposal {proposal_id}.", result)
     return result
 
 
