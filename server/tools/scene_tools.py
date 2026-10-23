@@ -7,6 +7,7 @@ state agree. Presence is checked here in Python before anything moves.
 from typing import Any
 
 from services.household import get_presence
+from state import people_db
 from state.store import append_action_log, load_json
 from tools.home_tools import move_person, set_device_state
 from tools.robot_tools import send_robot_to_room
@@ -36,8 +37,7 @@ def _device_of_type(room: str, device_type: str) -> str | None:
 
 def start_watch(person_id: str, duration_min: int = 45) -> dict[str, Any]:
     """Walk a person to the TV room, switch the TV on, and set the light by the household rule."""
-    memory = load_json("memory.json")
-    if person_id not in memory["people"]:
+    if not people_db.person_exists(person_id):
         return {"person_id": person_id, "success": False, "reason": "person_not_found"}
     presence = get_presence(person_id)
     if presence.get("presence") == "away":
@@ -53,7 +53,7 @@ def start_watch(person_id: str, duration_min: int = 45) -> dict[str, Any]:
 
     # The household rule from the skill: lights stay on only when the watcher is alone and has asked for it.
     alone = _occupants("tv_room") == [person_id]
-    wants_light_on = alone and memory["people"][person_id]["preferences"].get("movie_light_preference") == "on_when_alone"
+    wants_light_on = alone and people_db.get_person(person_id)["preferences"].get("movie_light_preference") == "on_when_alone"
     light_state = None
     if light is not None:
         light_result = set_device_state(light, "on" if wants_light_on else "off")
@@ -76,8 +76,7 @@ def start_watch(person_id: str, duration_min: int = 45) -> dict[str, Any]:
 
 def start_robot_massage(target_person_id: str, duration_min: int = 20) -> dict[str, Any]:
     """Send Housebot to sit beside a member who is home, for a simulated, non-medical massage."""
-    memory = load_json("memory.json")
-    if target_person_id not in memory["people"]:
+    if not people_db.person_exists(target_person_id):
         return {"target_person_id": target_person_id, "success": False, "reason": "person_not_found"}
     if get_presence(target_person_id).get("presence") == "away":
         return {"target_person_id": target_person_id, "success": False, "reason": "target_away"}
@@ -101,6 +100,6 @@ def start_robot_massage(target_person_id: str, duration_min: int = 20) -> dict[s
 
 def end_household_task(person_id: str) -> dict[str, Any]:
     """Stop the on-screen activity for one person. It does not cancel bookings or change devices."""
-    if person_id not in load_json("memory.json")["people"]:
+    if not people_db.person_exists(person_id):
         return {"person_id": person_id, "success": False, "reason": "person_not_found"}
     return {"person_id": person_id, "success": True, "ended": True, "also_ends_robot": False}

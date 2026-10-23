@@ -4,3 +4,6 @@ __pycache__/
 .env
 # Runtime-only hedge records written by the simulator
 server/state/ride_hedges.json
+
+# Local database of people and preferences (created from memory.json on first use)
+server/state/household.db

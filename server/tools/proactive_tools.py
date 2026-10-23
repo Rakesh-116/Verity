@@ -3,6 +3,7 @@
 from typing import Any
 
 from services.approval_store import approve_proposal, consume_approved_proposal, create_proposal
+from state import people_db
 from state.store import append_action_log, load_json, save_json
 
 
@@ -39,8 +40,7 @@ def get_energy_saving_opportunities() -> dict[str, Any]:
 
 def create_energy_saving_proposal(person_id: str, device_ids: list[str]) -> dict[str, Any]:
     """Create a confirmation-required proposal to switch eligible empty-room devices off."""
-    memory = load_json("memory.json")
-    if person_id not in memory["people"]:
+    if not people_db.person_exists(person_id):
         return {"person_id": person_id, "success": False, "reason": "person_not_found"}
     eligible = {item["device_id"]: item for item in _opportunities()}
     requested = list(dict.fromkeys(device_ids))

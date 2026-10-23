@@ -2,6 +2,7 @@
 
 from typing import Any
 
+from state import people_db
 from state.store import append_action_log, load_json, save_json
 
 
@@ -9,15 +10,13 @@ def get_active_speaker() -> dict[str, Any]:
     """Return the person currently selected by the simulator UI."""
     memory = load_json("memory.json")
     person_id = memory["active_speaker_id"]
-    person = memory["people"][person_id]
-    return {"person_id": person_id, "display_name": person["display_name"]}
+    return {"person_id": person_id, "display_name": people_db.display_name(person_id)}
 
 
 def set_active_speaker(person_id: str) -> dict[str, Any]:
     """Set the explicitly selected household speaker for the current simulator turn."""
     memory = load_json("memory.json")
-    person = memory["people"].get(person_id)
-    if person is None:
+    if not people_db.person_exists(person_id):
         return {
             "person_id": person_id,
             "success": False,
@@ -39,8 +38,7 @@ def set_active_speaker(person_id: str) -> dict[str, Any]:
 
 def get_person_context(person_id: str) -> dict[str, Any]:
     """Return one person's saved preferences without guessing any omitted values."""
-    memory = load_json("memory.json")
-    person = memory["people"].get(person_id)
+    person = people_db.get_person(person_id)
     if person is None:
         return {"person_id": person_id, "success": False, "reason": "person_not_found"}
     return {"person_id": person_id, "display_name": person["display_name"], "preferences": person["preferences"]}
@@ -48,20 +46,16 @@ def get_person_context(person_id: str) -> dict[str, Any]:
 
 def remember_preference(person_id: str, key: str, value: str) -> dict[str, Any]:
     """Persist one explicit preference and return its confirmed before/after values."""
-    memory = load_json("memory.json")
-    person = memory["people"].get(person_id)
-    if person is None:
+    if not people_db.person_exists(person_id):
         return {"person_id": person_id, "key": key, "success": False, "reason": "person_not_found"}
-    previous_value = person["preferences"].get(key)
-    person["preferences"][key] = value
-    save_json("memory.json", memory)
+    previous_value = people_db.set_preference(person_id, key, value)
     result = {
         "person_id": person_id,
         "key": key,
         "requested_value": value,
         "success": True,
         "previous_value": previous_value,
-        "confirmed_value": person["preferences"][key],
+        "confirmed_value": people_db.get_person(person_id)["preferences"][key],
     }
     append_action_log(person_id, "context", f"Updated preference {key}.", result)
     return result
@@ -70,7 +64,7 @@ def remember_preference(person_id: str, key: str, value: str) -> dict[str, Any]:
 def get_last_session_summary(person_id: str) -> dict[str, Any]:
     """Return the latest recorded state-changing action for one person."""
     memory = load_json("memory.json")
-    if person_id not in memory["people"]:
+    if not people_db.person_exists(person_id):
         return {"person_id": person_id, "success": False, "reason": "person_not_found"}
     entries = [entry for entry in memory["session_log"] if entry["person_id"] == person_id]
     if not entries:

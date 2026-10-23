@@ -2,6 +2,7 @@
 
 from typing import Any
 
+from state import people_db
 from state.store import append_action_log, load_json, save_json
 
 
@@ -111,9 +112,8 @@ def set_device_state(device_id: str, state: str) -> dict[str, Any]:
 def move_person(person_id: str, room: str) -> dict[str, Any]:
     """Move one explicit household person to one explicit room and confirm both locations."""
     home_state = load_json("home_state.json")
-    memory = load_json("memory.json")
 
-    if person_id not in memory["people"]:
+    if not people_db.person_exists(person_id):
         return {
             "person_id": person_id,
             "requested_room": room,

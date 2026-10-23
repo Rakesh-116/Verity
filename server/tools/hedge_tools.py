@@ -11,6 +11,7 @@ from uuid import uuid4
 from services.approval_store import approve_proposal, consume_approved_proposal, create_proposal
 from services.clock import get_clock
 from services.ride_value import estimate_value_of_time, score_option
+from state import people_db
 from state.store import append_action_log, load_json, save_json
 
 
@@ -31,7 +32,7 @@ def _hedges() -> dict[str, Any]:
 
 
 def _person_known(person_id: str) -> bool:
-    return person_id in load_json("memory.json")["people"]
+    return people_db.person_exists(person_id)
 
 
 def _transition(hedge: dict[str, Any], target: str) -> None:
@@ -544,7 +545,7 @@ def start_ride_hedge(person_id: str, proposal_id: str) -> dict[str, Any]:
     hedge = {
         "hedge_id": f"hedge.{uuid4().hex[:10]}",
         "person_id": person_id,
-        "requester_name": load_json("memory.json")["people"][person_id]["display_name"],
+        "requester_name": people_db.display_name(person_id),
         "proposal_id": proposal_id,
         "origin": payload["origin"],
         "destination": payload["destination"],

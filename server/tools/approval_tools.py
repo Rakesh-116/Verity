@@ -3,13 +3,13 @@
 from typing import Any
 
 from services.approval_store import list_pending_proposals
+from state import people_db
 from state.store import load_json
 
 
 def list_pending_actions(person_id: str, domain: str | None = None) -> dict[str, Any]:
     """List one person's proposals awaiting explicit approval; this never executes an action."""
-    memory = load_json("memory.json")
-    if person_id not in memory["people"]:
+    if not people_db.person_exists(person_id):
         return {"person_id": person_id, "success": False, "reason": "person_not_found"}
 
     proposals = list_pending_proposals(person_id, domain)

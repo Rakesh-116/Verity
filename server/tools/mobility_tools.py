@@ -7,6 +7,7 @@ from services.approval_store import approve_proposal, consume_approved_proposal,
 from services.comparison_engine import rank_quotes
 from services.ride_value import choose_ride
 from services.provenance import simulated_provenance
+from state import people_db
 from state.store import append_action_log, load_json
 
 
@@ -32,7 +33,7 @@ PROVIDER_LABELS = {"quickride": "QuickRide", "rideco": "RideCo", "citycab": "Cit
 
 
 def _person_preferences(person_id: str) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
-    person = load_json("memory.json")["people"].get(person_id)
+    person = people_db.get_person(person_id)
     if person is None:
         return None, {"person_id": person_id, "success": False, "reason": "person_not_found"}
     return person["preferences"], None

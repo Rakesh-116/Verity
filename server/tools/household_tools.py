@@ -3,6 +3,7 @@
 from typing import Any
 
 from services.household import get_presence, resolve_mentions, roster, set_presence, set_sim_time, sim_now
+from state import people_db
 from state.store import append_action_log, load_json
 
 
@@ -11,7 +12,7 @@ def get_household() -> dict[str, Any]:
     members = []
     for person_id, member in roster().items():
         presence = get_presence(person_id)
-        saved = load_json("memory.json")["people"].get(person_id, {}).get("preferences", {})
+        saved = (people_db.get_person(person_id) or {}).get("preferences", {})
         members.append({
             "person_id": person_id,
             "display_name": member["display_name"],
