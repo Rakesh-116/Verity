@@ -343,6 +343,12 @@ class AgentHost:
             import traceback
 
             traceback.print_exc()
+            if "429" in str(error) or "rate limit" in str(error).lower():
+                # The provider's usage limit, not a fault in the app: say so plainly.
+                return {
+                    "speech": "The AI model has reached its usage limit for now, so I can't answer with it. Try again in a little while, or use the scripted demo commands, which need no AI key.",
+                    "trace": [{"kind": "provider_limit", "detail": str(error)[:300]}],
+                }
             return {
                 "speech": f"The simulator could not complete that request ({type(error).__name__}: {error}).",
                 "trace": [{"kind": "agent_error", "detail": f"{type(error).__name__}: {error}"}],
