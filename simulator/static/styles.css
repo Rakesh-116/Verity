@@ -165,3 +165,9 @@ body { padding: 14px; }
 .thinking-steps { margin: 0; padding-left: 20px; font-size: 13px; display: flex; flex-direction: column; gap: 3px; }
 .thinking-steps li.ok { color: #bff5d8; }
 .thinking-steps li.fail { color: #ffb4a0; }
+
+
+/* Popups: no dark cover over the house, movable by the header, resizable from the corner. */
+.overlay { background: transparent !important; pointer-events: none; }
+.overlay-card { pointer-events: auto; resize: both; overflow: auto; min-width: 300px; min-height: 160px; }
+.thinking-card { resize: both; overflow: auto; min-width: 320px; min-height: 120px; }

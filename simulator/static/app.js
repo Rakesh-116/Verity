@@ -286,7 +286,36 @@ document.querySelector("#confirm-done").addEventListener("click", () => hideOver
 setInterval(checkPending, 1500);
 
 // Suggested tasks: one click asks Verity as the person currently selected.
-document.querySelectorAll(".suggest").forEach((button) => button.addEventListener("click", () => enqueueAsk(button.dataset.say, speaker.value)));
+// Each suggestion names who says it, so "Book Amma a ride" is said by Son, not by whoever was selected last.
+document.querySelectorAll(".suggest").forEach((button) => button.addEventListener("click", () => {
+  speaker.value = button.dataset.speaker;
+  enqueueAsk(button.dataset.say, button.dataset.speaker);
+}));
+
+// Popups can be dragged by their header and resized from the corner.
+function makeMovable(card) {
+  const head = card.querySelector(".overlay-head, .thinking-head");
+  if (!head) return;
+  head.style.cursor = "move";
+  head.addEventListener("pointerdown", (event) => {
+    if (event.target.closest("button")) return;
+    const rect = card.getBoundingClientRect();
+    const offsetX = event.clientX - rect.left, offsetY = event.clientY - rect.top;
+    card.style.position = "fixed"; card.style.transform = "none";
+    card.style.left = `${rect.left}px`; card.style.top = `${rect.top}px`;
+    const move = (e) => {
+      card.style.left = `${Math.min(Math.max(0, e.clientX - offsetX), window.innerWidth - 80)}px`;
+      card.style.top = `${Math.min(Math.max(0, e.clientY - offsetY), window.innerHeight - 40)}px`;
+    };
+    const up = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  });
+}
+["#thinking-card", "#confirm-overlay .overlay-card", "#ride-overlay .overlay-card", "#household-modal .overlay-card"].forEach((selector) => {
+  const card = document.querySelector(selector);
+  if (card) makeMovable(card);
+});
 
 // Developer control for the simulated house time. Members who are away return home when it reaches their time.
 document.querySelector("#sim-time").addEventListener("change", async (event) => {
