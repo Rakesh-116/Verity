@@ -131,10 +131,19 @@ function addMessage(kind, who, text, personId = null) {
   const span = document.createElement("span"); span.textContent = text; body.append(name, span);
   item.append(avatarFor(personId), body); conversation.appendChild(item); conversation.scrollTop = conversation.scrollHeight;
 }
+// The reply is read in a female English voice when the browser has one. Otherwise the browser's English voice is used.
+const FEMALE_VOICE_NAMES = /female|samantha|zira|aria|jenny|hazel|susan|karen|moira|victoria|serena|fiona/i;
+function femaleVoice() {
+  const voices = window.speechSynthesis.getVoices();
+  const english = voices.filter((voice) => /^en/i.test(voice.lang));
+  return english.find((voice) => FEMALE_VOICE_NAMES.test(voice.name)) || english[0] || null;
+}
 function speak(text) {
   if (!window.speechSynthesis) return;
   window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
+  utterance.voice = femaleVoice();
+  utterance.pitch = 1.05;
   const device = document.querySelector(".echo");
   utterance.onstart = () => device.classList.add("speaking");
   utterance.onend = utterance.onerror = () => device.classList.remove("speaking");
