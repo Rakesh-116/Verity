@@ -20,7 +20,7 @@ from simulator.mcp_gateway import MCPGateway, as_bedrock_tools, as_openai_tools,
 from simulator.narration import describe_call, describe_doing
 from services.household import authorize, is_action_request, resolve_mentions, roster as household_roster
 from services.scene import apply_tool_result, scene_summary
-from simulator.scripted_demo import run_scripted
+from simulator.scripted_demo import PROVIDER_NAMES, run_scripted
 
 
 SKILL_PATH = PROJECT_DIRECTORY / "skills" / "verity" / "SKILL.md"
@@ -119,6 +119,34 @@ class AgentHost:
             "clock": await self.clock(),
             "scene_lines": scene_summary(scene, {p: m["display_name"] for p, m in household_roster().items()}),
         }
+
+    def _track_ride_confirmation(self, session_id: str | None, trace: list[dict[str, Any]]) -> None:
+        """A ride the model proposed waits for a yes, the same as the scripted demo: the page shows it as a popup."""
+        pending = self._pending.setdefault(session_id or "local", {})
+        roster = household_roster()
+        for event in trace:
+            if event.get("kind") != "tool" or event["result"].get("is_error"):
+                continue
+            output = event["result"].get("output")
+            if not isinstance(output, dict) or output.get("success") is False:
+                continue
+            if event["name"] == "create_ride_booking_proposal":
+                quote = output.get("quote") or {}
+                person = output.get("person_id") or event["arguments"].get("person_id")
+                provider = quote.get("provider") or event["arguments"].get("provider", "")
+                pending.clear()
+                pending.update({
+                    "proposal_id": output["proposal_id"],
+                    "person_id": person,
+                    "name": roster.get(person, {}).get("display_name", person),
+                    "provider": provider,
+                    "provider_name": PROVIDER_NAMES.get(provider, provider),
+                    "destination": quote.get("destination") or event["arguments"].get("destination", ""),
+                    "eta_min": quote.get("eta_minutes"),
+                    "price_inr": quote.get("price_inr"),
+                })
+            elif event["name"] in {"approve_ride_booking", "book_ride"} and output.get("proposal_id") == pending.get("proposal_id"):
+                pending.clear()
 
     @staticmethod
     def llm_configured() -> bool:
@@ -236,6 +264,7 @@ class AgentHost:
             for event in _tool_events(result):
                 if not event["result"].get("is_error"):
                     self._scene = apply_tool_result(self._scene, event["name"], event.get("arguments", {}), event["result"].get("output"))
+            self._track_ride_confirmation(session_id, result["trace"])
             self._remember_exchange(history_key, text, result["speech"])
             return result
         except ValueError as error:

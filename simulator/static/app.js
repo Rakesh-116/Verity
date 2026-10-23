@@ -297,7 +297,25 @@ document.querySelector("#sim-time").addEventListener("change", async (event) => 
 // Live status line: polls what Verity is doing right now, in plain words.
 let progressTimer = null;
 const IDLE_AGENT_TEXT = "Ready. Ask for something, or try the time tick.";
+function showThinking() {
+  document.querySelector("#thinking-card").hidden = false;
+  document.querySelector("#thinking-steps").replaceChildren();
+  document.querySelector("#thinking-now").textContent = "Thinking about what you asked…";
+}
+function renderThinking(steps, current) {
+  if (current) document.querySelector("#thinking-now").textContent = current;
+  const list = document.querySelector("#thinking-steps");
+  list.replaceChildren(...steps.map((step) => {
+    const item = document.createElement("li");
+    item.className = step.ok ? "ok" : "fail";
+    item.textContent = (step.ok ? "✓ " : "✗ ") + step.text;
+    return item;
+  }));
+}
+document.querySelector("#thinking-close").addEventListener("click", () => { document.querySelector("#thinking-card").hidden = true; });
+
 function startProgress() {
+  showThinking();
   document.querySelector("#agent-now").textContent = "Thinking about what you asked…";
   document.querySelector(".echo").classList.add("thinking");
   clearInterval(progressTimer); progressTimer = setInterval(pollProgress, 500);
@@ -307,10 +325,13 @@ async function pollProgress() {
     const response = await fetch(`/api/progress?session_id=${encodeURIComponent(sessionId)}`);
     const data = await response.json();
     if (data.current) document.querySelector("#agent-now").textContent = data.current;
+    renderThinking(data.steps || [], data.current);
   } catch (error) { /* the next poll will try again */ }
 }
 function stopProgress() {
   clearInterval(progressTimer); progressTimer = null;
+  // Keep the finished steps visible for a moment, then let the card close.
+  setTimeout(() => { if (!progressTimer) document.querySelector("#thinking-card").hidden = true; }, 6000);
   document.querySelector(".echo").classList.remove("thinking");
   document.querySelector("#agent-now").textContent = IDLE_AGENT_TEXT;
 }

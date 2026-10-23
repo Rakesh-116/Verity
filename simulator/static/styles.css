@@ -154,3 +154,14 @@ body { padding: 14px; }
 /* House takes 70% of the viewport height, keeps its 4:3 shape, and the input and chips use the rest. */
 .house-shell { width: min(100%, calc(70vh * 4 / 3)); height: 70vh; margin: 0 auto; }
 #pixel-house { width: 100%; height: 100%; display: block; }
+
+
+/* Working card: shows each step as Verity makes it. Does not block the house. */
+.thinking-card { position: fixed; top: 150px; left: 50%; transform: translateX(-50%); width: min(560px, 92vw); z-index: 40; background: #111c2e; border: 1px solid #2c4a6e; border-radius: 12px; padding: 12px 14px; box-shadow: 0 16px 40px rgba(0, 0, 0, .45); }
+.thinking-card[hidden] { display: none; }
+.thinking-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.thinking-head .close { font: inherit; font-size: 18px; line-height: 1; padding: 0 8px; border-radius: 6px; border: 1px solid #5b7fa8; background: #13233a; color: #e7f0fb; cursor: pointer; }
+.thinking-now { margin: 0 0 6px; font-size: 15px; color: #e7f0fb; }
+.thinking-steps { margin: 0; padding-left: 20px; font-size: 13px; display: flex; flex-direction: column; gap: 3px; }
+.thinking-steps li.ok { color: #bff5d8; }
+.thinking-steps li.fail { color: #ffb4a0; }

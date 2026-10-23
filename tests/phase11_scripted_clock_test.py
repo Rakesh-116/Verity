@@ -21,7 +21,7 @@ os.environ["AI_PROVIDER"] = "groq"
 sys.path.insert(0, str(PROJECT_DIRECTORY / "server"))
 sys.path.insert(0, str(PROJECT_DIRECTORY))
 
-from services.household import get_presence, set_sim_time  # noqa: E402
+from services.household import get_presence, set_presence, set_sim_time  # noqa: E402
 from simulator.agent_host import AgentHost  # noqa: E402
 
 
@@ -39,6 +39,7 @@ async def _set_time(host: AgentHost, sim_time: str) -> None:
 
 
 def test_amma_is_away_until_her_time_then_returns_by_the_clock() -> None:
+    set_presence("amma", "away", "09:00")  # set explicitly: the working-copy state can change while the simulator runs
     assert set_sim_time("08:59")["success"]
     assert get_presence("amma")["presence"] == "away"
     assert set_sim_time("09:00")["success"]
@@ -100,10 +101,24 @@ def test_unknown_commands_get_the_plain_list_not_a_made_up_action() -> None:
     asyncio.run(scenario())
 
 
+def test_a_ride_proposed_by_the_model_waits_for_a_yes_like_the_scripted_demo() -> None:
+    """Model path: a proposal from a tool result is shown as pending; an approval or booking clears it."""
+    host = _host()
+    trace = [{"kind": "tool", "name": "create_ride_booking_proposal", "arguments": {"person_id": "amma", "provider": "citycab", "ride_id": "ride.citycab.amma.1", "destination": "market"},
+              "result": {"is_error": False, "output": {"success": True, "person_id": "amma", "proposal_id": "proposal.ride_booking.abc", "quote": {"provider": "citycab", "eta_minutes": 4, "price_inr": 128, "destination": "market"}}}}]
+    host._track_ride_confirmation("m1", trace)
+    waiting = host.progress("m1")["pending"]
+    assert waiting["name"] == "Amma" and waiting["provider_name"] == "CityCab" and waiting["destination"] == "market", waiting
+    trace.append({"kind": "tool", "name": "book_ride", "arguments": {}, "result": {"is_error": False, "output": {"success": True, "proposal_id": "proposal.ride_booking.abc"}}})
+    host._track_ride_confirmation("m1", trace)
+    assert host.progress("m1")["pending"] is None
+
+
 if __name__ == "__main__":
     test_amma_is_away_until_her_time_then_returns_by_the_clock()
     test_scripted_mode_is_reported()
     test_booking_for_amma_waits_until_she_is_home_then_confirms_then_books()
     test_watch_tv_and_massage_run_as_visible_activities()
     test_unknown_commands_get_the_plain_list_not_a_made_up_action()
+    test_a_ride_proposed_by_the_model_waits_for_a_yes_like_the_scripted_demo()
     print("Phase 11 scripted demo and clock verification passed.")
