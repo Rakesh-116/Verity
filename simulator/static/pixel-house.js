@@ -105,7 +105,7 @@
         if (spot) target = spot;
         let actor = this.people.get(id);
         if (!actor) {
-          actor = { id, col: target.col, row: target.row, x: target.col, y: target.row, path: [], room: state.room, targetCol: target.col, targetRow: target.row, status: state.status, color: roster[id].color, label: roster[id].label, frame: 0 };
+          actor = { id, col: target.col, row: target.row, x: target.col, y: target.row, path: [], room: state.room, targetCol: target.col, targetRow: target.row, status: state.status, color: roster[id].color, label: roster[id].label, frame: 0, clock: 0, offset: [...id].reduce((sum, ch) => sum + ch.charCodeAt(0), 0) % 18, pose: "wait" };
           this.people.set(id, actor);
         }
         actor.status = state.status; actor.color = roster[id].color; actor.label = roster[id].label;
@@ -133,12 +133,24 @@
     frame(now) { const dt = Math.min((now - this.lastFrame) / 1000, .1); this.lastFrame = now; this.update(dt); this.draw(); requestAnimationFrame((time) => this.frame(time)); }
     update(dt) {
       for (const actor of this.people.values()) {
-        if (!actor.path.length) continue;
+        actor.clock = (actor.clock || 0) + dt;
+        if (!actor.path.length) { actor.pose = this.poseFor(actor); continue; }
+        actor.pose = "walk";
         const target = actor.path[0], speed = 5.7, dx = target.col - actor.x, dy = target.row - actor.y, distance = Math.hypot(dx, dy), amount = speed * dt;
         actor.frame += dt * 10;
         if (distance <= amount) { actor.x = target.col; actor.y = target.row; actor.col = target.col; actor.row = target.row; actor.path.shift(); }
         else { actor.x += dx / distance * amount; actor.y += dy / distance * amount; }
       }
+    }
+
+    // Standing still, a person is reading, waiting or staring. An activity sets the pose; with none,
+    // people rotate through the three every few seconds, each starting at a different point.
+    poseFor(actor) {
+      const task = this.scene[actor.id];
+      if (task?.spot === "tv_seat") return "stare";
+      if (task) return "wait";
+      const step = Math.floor((actor.clock + actor.offset) / 6) % 3;
+      return ["read", "wait", "stare"][step];
     }
 
     draw() {
@@ -193,7 +205,10 @@
     }
 
     drawPerson(c, person) {
-      const x = Math.round(person.x * TILE + TILE / 2), y = Math.round(person.y * TILE + TILE / 2), walking = person.path.length > 0, bob = walking ? Math.round(Math.sin(person.frame) * 1.5) : 0;
+      const x = Math.round(person.x * TILE + TILE / 2), y = Math.round(person.y * TILE + TILE / 2), walking = person.path.length > 0;
+      // Sprite sheet: 7 frames of 16px across (0-2 walk, 1 stand, 5-6 read), 3 facing rows (0 down, 1 up, 2 side).
+      const breathing = person.pose === "wait" ? Math.round(Math.sin(person.clock * 2.5) * .8) : 0;
+      const bob = walking ? Math.round(Math.sin(person.frame) * 1.5) : breathing;
       if (person.id === "housebot") {
         this.drawRobot(c, person, x, y, bob);
         return;
@@ -201,8 +216,17 @@
       const sheet = this.sheets.get(person.id);
       if (sheet) {
         const next = person.path[0], dx = next ? next.col - person.x : 0, dy = next ? next.row - person.y : 1;
-        const row = Math.abs(dx) > Math.abs(dy) ? 2 : dy < 0 ? 1 : 0;
-        const frame = walking ? [0, 1, 2, 1][Math.floor(person.frame) % 4] : 1;
+        let row = 0, frame = 1;
+        if (walking) {
+          row = Math.abs(dx) > Math.abs(dy) ? 2 : dy < 0 ? 1 : 0;
+          frame = [0, 1, 2, 1][Math.floor(person.frame) % 4];
+        } else if (person.pose === "read") {
+          // Head down over a book: the two reading frames flip slowly.
+          frame = 5 + Math.floor(person.clock / .8) % 2;
+        } else if (person.pose === "stare") {
+          // Facing away, toward the TV or the wall.
+          row = 1;
+        }
         c.drawImage(sheet, frame * 16, row * 32, 16, 32, x - 16, y - 32 + bob, 32, 64);
       } else {
       c.fillStyle = "#0a0e14"; c.fillRect(x - 7, y + 8 + bob, 5, 7); c.fillRect(x + 2, y + 8 - bob, 5, 7);
