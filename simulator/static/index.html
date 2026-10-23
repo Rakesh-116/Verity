@@ -18,7 +18,7 @@
         <button class="mode active" data-mode="manual">Manual</button>
         <button class="mode" data-mode="demo">Demo</button>
       </div>
-      <p id="mode-pill" class="mode-pill" title="Which answers this simulator gives">Checking mode…</p>
+      <p id="mode-pill" class="mode-pill" hidden title="Shown only when the scripted demo answers">Scripted demo</p>
       <p id="sim-clock" class="debug-only">SIM TIME 06:00</p>
       <label class="debug-only sim-time-control">Sim time <input id="sim-time" type="time" /></label>
       <button id="ride-open" class="ride-open" type="button" hidden>Ride</button>
@@ -50,7 +50,6 @@
           <option value="son">Son</option>
           <option value="amma">Amma</option>
           <option value="papa">Papa</option>
-          <option value="sister">Sister</option>
         </select>
         <label class="sr-only" for="prompt">Instruction</label>
         <input id="prompt" autocomplete="off" placeholder="Try: “Book Amma a ride to the market”" />
@@ -58,6 +57,11 @@
         <button id="send" type="submit">Send</button>
         <button id="tick" class="debug-only" type="button" title="Developer only: send a simulated time-of-day event">Simulate Mon 10:15 at PG</button>
       </form>
+      <div id="suggestions" class="suggestions" aria-label="Things you can ask">
+        <button type="button" class="suggest" data-say="Book Amma a ride to the market">Book Amma a ride to the market</button>
+        <button type="button" class="suggest" data-say="Papa wants to watch TV">Papa wants to watch TV</button>
+        <button type="button" class="suggest" data-say="Help Amma">Help Amma with a massage</button>
+      </div>
       <p class="notice">Voice is optional. Simulated Alexa+ uses a generic browser voice, never an Alexa voice imitation.</p>
       <span id="status" class="debug-only">Loading state…</span>
 

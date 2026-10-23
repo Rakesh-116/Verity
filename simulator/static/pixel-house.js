@@ -38,7 +38,6 @@
     son: "/assets/pixel-agents/characters/char_0.png",
     amma: "/assets/pixel-agents/characters/char_1.png",
     papa: "/assets/pixel-agents/characters/char_3.png",
-    sister: "/assets/pixel-agents/characters/char_4.png",
   };
   const tileKey = (col, row) => `${col},${row}`;
   const walkable = new Set();

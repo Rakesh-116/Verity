@@ -136,3 +136,17 @@ body { padding: 14px; }
 .confirm-actions button { font: inherit; font-size: 15px; padding: 9px 16px; border-radius: 8px; border: 1px solid #5b7fa8; background: #13233a; color: #e7f0fb; cursor: pointer; }
 .confirm-actions button.primary { border-color: #6be5b0; background: #0d2a26; color: #d7fff0; }
 .confirm-actions[hidden] { display: none; }
+
+
+/* Fit the whole house on one screen: the house sizes to the window height. */
+.house-shell { width: min(calc((100vh - 370px) * 1.3333), 1100px); max-width: 100%; margin: 0 auto; }
+.house-stage { display: flex; justify-content: center; }
+.topbar .brand h1 { font-size: 26px; }
+.topbar { padding: 2px 4px 8px; }
+.now-strip { padding: 8px 12px; font-size: 14px; }
+.reply:empty { display: none; }
+.suggestions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.suggest { font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 999px; border: 1px dashed #5b7fa8; background: transparent; color: #cfe0f3; cursor: pointer; }
+.suggest:hover { border-style: solid; background: #13233a; }
+.home { gap: 8px; padding-bottom: 6px; }
+.notice { margin: 0; font-size: 12px; text-align: center; }

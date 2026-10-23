@@ -10,7 +10,7 @@ const ROOMS = {
   bedroom: { x: 13, y: 66 }, tv_room: { x: 66, y: 66 }, away: { x: 48, y: 48 }
 };
 const CONNECTIONS = { living_room: ["kitchen", "bedroom"], kitchen: ["living_room", "tv_room"], bedroom: ["living_room", "tv_room"], tv_room: ["kitchen", "bedroom"] };
-const PEOPLE = { son: { label: "Son", color: "#7bdff2" }, amma: { label: "Amma", color: "#ffb86c" }, papa: { label: "Papa", color: "#b8f2a0" }, sister: { label: "Sister", color: "#e4b7ff" }, housebot: { label: "Housebot", color: "#9de5ff" } };
+const PEOPLE = { son: { label: "Son", color: "#7bdff2" }, amma: { label: "Amma", color: "#ffb86c" }, papa: { label: "Papa", color: "#b8f2a0" }, housebot: { label: "Housebot", color: "#9de5ff" } };
 const characters = Object.fromEntries(Object.keys(PEOPLE).map((id) => [id, { room: "away", status: "away" }]));
 const demoScript = [
   { time: "07:00", person: "son", text: "Remember that my response style is brief." },
@@ -81,9 +81,12 @@ async function refreshState() {
   try {
     const response = await fetch("/api/state"), data = await response.json(); if (!response.ok) throw new Error(data.error);
     presenceAway = new Set((data.household?.members || []).filter((m) => m.presence === "away").map((m) => m.person_id));
+    // The pill is only for the labelled scripted demo. Which model answers is a developer detail.
     const pill = document.querySelector("#mode-pill");
-    pill.textContent = data.mode === "scripted" ? "Scripted demo · no AI key" : `AI answers: ${String(data.mode || "").replace("ai:", "")}`;
-    pill.className = `mode-pill ${data.mode === "scripted" ? "scripted" : "ai"}`;
+    const scripted = data.mode === "scripted";
+    pill.hidden = !scripted && !document.body.classList.contains("debug");
+    pill.textContent = scripted ? "Scripted demo · no AI key" : `Debug: AI answers ${String(data.mode || "").replace("ai:", "")}`;
+    pill.className = `mode-pill ${scripted ? "scripted" : "ai"}`;
     if (data.clock?.sim_time) {
       document.querySelector("#sim-clock").textContent = `SIM TIME ${data.clock.sim_time}`;
       const timeInput = document.querySelector("#sim-time");
@@ -103,7 +106,7 @@ async function refreshState() {
   } catch (error) { status.textContent = "MCP state unavailable"; }
 }
 
-const AVATAR_SPRITES = { son: "char_0", amma: "char_1", papa: "char_3", sister: "char_4" };
+const AVATAR_SPRITES = { son: "char_0", amma: "char_1", papa: "char_3" };
 function avatarFor(personId) {
   const avatar = document.createElement("span");
   if (personId && AVATAR_SPRITES[personId]) {
@@ -281,6 +284,9 @@ document.querySelector("#confirm-yes").addEventListener("click", () => { hideOve
 document.querySelector("#confirm-no").addEventListener("click", () => { hideOverlay("confirm-overlay"); enqueueAsk("no", speaker.value); });
 document.querySelector("#confirm-done").addEventListener("click", () => hideOverlay("confirm-overlay"));
 setInterval(checkPending, 1500);
+
+// Suggested tasks: one click asks Verity as the person currently selected.
+document.querySelectorAll(".suggest").forEach((button) => button.addEventListener("click", () => enqueueAsk(button.dataset.say, speaker.value)));
 
 // Developer control for the simulated house time. Members who are away return home when it reaches their time.
 document.querySelector("#sim-time").addEventListener("change", async (event) => {

@@ -57,10 +57,10 @@ def test_presence_needs_a_return_time_when_away() -> None:
 
 
 def test_away_speaker_is_refused_before_any_model_call() -> None:
-    set_presence("sister", "away", "19:00")
-    decision = authorize("sister", "Book me a ride to the office")
-    assert decision == {"allowed": False, "reason": "speaker_away", "speech": "Sister is away until 19:00, so I can't act for Sister right now."}, decision
-    set_presence("sister", "home")
+    set_presence("papa", "away", "19:00")
+    decision = authorize("papa", "Book me a ride to the office")
+    assert decision == {"allowed": False, "reason": "speaker_away", "speech": "Papa is away until 19:00, so I can't act for Papa right now."}, decision
+    set_presence("papa", "home")
 
 
 def test_action_naming_an_away_member_is_refused() -> None:
@@ -148,11 +148,11 @@ def test_a_question_does_not_force_a_tool() -> None:
 
 
 def test_away_speaker_turn_never_calls_the_model() -> None:
-    set_presence("sister", "away", "19:00")
-    result, scripted = _run("Get me a ride", "sister", [_Message(content="should not run")])
-    assert result["speech"].startswith("Sister is away until 19:00"), result["speech"]
+    set_presence("papa", "away", "19:00")
+    result, scripted = _run("Get me a ride", "papa", [_Message(content="should not run")])
+    assert result["speech"].startswith("Papa is away until 19:00"), result["speech"]
     assert scripted.calls == [], scripted.calls
-    set_presence("sister", "home")
+    set_presence("papa", "home")
 
 
 if __name__ == "__main__":

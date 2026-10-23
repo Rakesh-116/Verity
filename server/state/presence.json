@@ -11,9 +11,5 @@
   "son": {
     "presence": "home",
     "return_at": null
-  },
-  "sister": {
-    "presence": "home",
-    "return_at": null
   }
 }

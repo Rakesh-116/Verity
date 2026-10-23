@@ -36,14 +36,6 @@
         "response_style": "brief",
         "movie_light_preference": "on_when_alone"
       }
-    },
-    "sister": {
-      "display_name": "Sister",
-      "preferences": {
-        "usual_transport_mode": "bus",
-        "usual_destination": "campus",
-        "response_style": "brief"
-      }
     }
   },
   "scenes": {},
