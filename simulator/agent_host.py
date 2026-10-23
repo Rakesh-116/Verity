@@ -26,7 +26,7 @@ from simulator.narration import describe_call, describe_doing
 from services.places import saved_places
 from services.household import authorize, is_action_request, resolve_mentions, roster as household_roster
 from services.scene import advance_scene, apply_tool_result, scene_summary
-from simulator.scripted_demo import PROVIDER_NAMES, is_confirmation, is_preference_answer, run_scripted
+from simulator.scripted_demo import ORDER, PROVIDER_NAMES, is_confirmation, is_preference_answer, run_scripted
 
 
 SKILL_PATH = PROJECT_DIRECTORY / "skills" / "verity" / "SKILL.md"
@@ -719,7 +719,8 @@ class AgentHost:
             decided = await self.decide(session_id, open_items[0]["proposal_id"], decision)
             return {"speech": decided["speech"], "trace": trace + decided["trace"]}
         awaiting = "awaiting" in pending
-        if (awaiting and is_preference_answer(text)) or not self.llm_configured():
+        # A plain "order ..." is always the same simple order, so it never depends on the model's reading of it.
+        if (awaiting and is_preference_answer(text)) or not self.llm_configured() or ORDER.match(text.strip()):
             scripted = await self._finish_turn(await self._scripted_turn(text, active_speaker_id, session_id, trace), text, active_speaker_id, session_id)
             scripted["answered_by"] = "scripted demo · no model"
             await self._after_turn(session_id, request_id, active_speaker_id, scripted["trace"])
