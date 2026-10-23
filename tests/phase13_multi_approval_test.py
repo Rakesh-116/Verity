@@ -119,16 +119,18 @@ def test_watching_tv_asks_others_at_home_to_join_and_declining_sends_them_to_the
     session = "watch-1"
     asyncio.run(host._offer_watch_invites(session, "request-7", "papa"))
     invites = [item for item in host.progress(session)["approvals"] if item["kind"] == "invite"]
-    # Amma is already in the TV room and Papa is the one watching, so only Son is asked.
-    assert [item["person_id"] for item in invites] == ["son"], invites
-    assert invites[0]["request_id"] == "request-7" and invites[0]["alternatives"][0] == "bedroom"
+    # Everyone at home is asked, including Amma who is already in the TV room. Papa is the one watching.
+    assert sorted(item["person_id"] for item in invites) == ["amma", "son"], invites
+    assert next(item for item in invites if item["person_id"] == "amma")["already_there"] is True
+    son = next(item for item in invites if item["person_id"] == "son")
+    assert son["request_id"] == "request-7" and son["alternatives"][0] == "bedroom"
 
-    joined = asyncio.run(host.decide(session, invites[0]["proposal_id"], "accept"))
+    joined = asyncio.run(host.decide(session, son["proposal_id"], "accept"))
     assert joined["success"] and "joined Papa in the TV room" in joined["speech"], joined
     assert ("move_person", {"person_id": "son", "room": "tv_room"}) in gateway.calls
 
     asyncio.run(host._offer_watch_invites(session, "request-8", "papa"))
-    declined_item = next(item for item in host.progress(session)["approvals"] if item["kind"] == "invite")
+    declined_item = next(item for item in host.progress(session)["approvals"] if item["kind"] == "invite" and item["person_id"] == "son")
     declined = asyncio.run(host.decide(session, declined_item["proposal_id"], "decline"))
     assert declined["success"] and "staying in the bedroom" in declined["speech"], declined
     assert ("move_person", {"person_id": "son", "room": "bedroom"}) in gateway.calls

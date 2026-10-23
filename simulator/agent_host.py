@@ -375,7 +375,8 @@ class AgentHost:
         approvals = self._approvals.setdefault(key, {})
         for member in (household.get("output") or {}).get("members", []):
             person = member["person_id"]
-            if person in (speaker, "housebot") or member.get("presence") != "home" or rooms.get(person) == "tv_room":
+            # Everyone at home is asked, including someone already in the TV room. Saying no sends them to their other room.
+            if person in (speaker, "housebot") or member.get("presence") != "home":
                 continue
             invite_id = f"invite.{request_id or 'x'}.{person}"
             approvals[invite_id] = {
@@ -386,6 +387,7 @@ class AgentHost:
                 "speaker_name": speaker_name,
                 "request_id": request_id,
                 "alternatives": WATCH_ROOMS.get(person, ["living_room"]),
+                "already_there": rooms.get(person) == "tv_room",
             }
 
     def _track_ride_confirmation(self, session_id: str | None, trace: list[dict[str, Any]], request_id: str | None = None) -> None:
@@ -464,7 +466,10 @@ class AgentHost:
             # Joining moves them to the TV room; declining moves them to the room they prefer.
             if decision == "accept":
                 moved = await call("move_person", {"person_id": person, "room": "tv_room"})
-                speech = f"{item['name']} joined {item['speaker_name']} in the TV room." if moved.get("success") else f"{item['name']} could not join: {moved.get('reason', 'unknown reason')}."
+                if item.get("already_there"):
+                    speech = f"{item['name']} is watching TV with {item['speaker_name']}." if moved.get("success") else f"{item['name']} could not stay: {moved.get('reason', 'unknown reason')}."
+                else:
+                    speech = f"{item['name']} joined {item['speaker_name']} in the TV room." if moved.get("success") else f"{item['name']} could not join: {moved.get('reason', 'unknown reason')}."
             else:
                 room = item["alternatives"][0]
                 moved = await call("move_person", {"person_id": person, "room": room})

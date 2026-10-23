@@ -131,7 +131,15 @@ function addMessage(kind, who, text, personId = null) {
   const span = document.createElement("span"); span.textContent = text; body.append(name, span);
   item.append(avatarFor(personId), body); conversation.appendChild(item); conversation.scrollTop = conversation.scrollHeight;
 }
-function speak(text) { if (!window.speechSynthesis) return; window.speechSynthesis.cancel(); window.speechSynthesis.speak(new SpeechSynthesisUtterance(text)); }
+function speak(text) {
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(text);
+  const device = document.querySelector(".echo");
+  utterance.onstart = () => device.classList.add("speaking");
+  utterance.onend = utterance.onerror = () => device.classList.remove("speaking");
+  window.speechSynthesis.speak(utterance);
+}
 
 function plainSpeech(text) {
   return text
@@ -445,7 +453,9 @@ function renderQuestion(question, requestId) {
 // One card per ride, order or invitation waiting for a decision. Each card sends only its own proposal id.
 const approvalCards = new Map();
 function approvalText(approval) {
-  if (approval.kind === "invite") return `${approval.speaker_name} is watching TV. Join them in the TV room?`;
+  const other = (approval.alternatives || ["other room"])[0].replace("_", " ");
+  if (approval.kind === "invite" && approval.already_there) return `${approval.speaker_name} is watching TV. Watch with them, or go to the ${other}?`;
+  if (approval.kind === "invite") return `${approval.speaker_name} is watching TV. Join them in the TV room, or go to the ${other}?`;
   if (approval.kind === "order") return `Order for ${approval.name} from ${approval.provider_name}: ${(approval.items || []).join(", ")}.`;
   const preference = approval.ride_priority ? `${approval.name}'s saved preference: ${approval.ride_priority}. ` : "";
   const trip = approval.distance_km ? `, ${approval.distance_km} km from the house` : "";
@@ -469,7 +479,7 @@ function renderApprovals(approvals) {
     node.append(el("p", "task-text", approvalText(approval)));
     const invite = approval.kind === "invite";
     const decline = el("button", "secondary", invite ? "Not now" : "Decline");
-    const accept = el("button", "primary", invite ? "Join" : "Accept");
+    const accept = el("button", "primary", invite ? (approval.already_there ? "Watch with them" : "Join") : "Accept");
     decline.type = accept.type = "button";
     decline.addEventListener("click", () => decideApproval(approval.proposal_id, "decline"));
     accept.addEventListener("click", () => decideApproval(approval.proposal_id, "accept"));
