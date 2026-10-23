@@ -43,7 +43,6 @@
 
       <div id="agent-now" class="now-strip" role="status" aria-live="polite">Ready. Ask for something, or say who should do what.</div>
       <div id="reply" class="reply" aria-live="polite"></div>
-      <div id="question-actions" class="reply-actions" hidden></div>
       <div id="reply-actions" class="reply-actions" hidden>
         <span class="reply-actions-note">Approval needed:</span>
         <button id="accept-ride" class="primary" type="button">Accept</button>
@@ -121,6 +120,18 @@
         <div id="confirm-done-row" class="confirm-actions">
           <button id="confirm-done" class="primary" type="button" hidden>Close</button>
         </div>
+      </div>
+    </div>
+
+    <div id="question-overlay" class="overlay" hidden>
+      <div class="overlay-card question-card" role="dialog" aria-modal="true" aria-labelledby="question-title">
+        <header class="overlay-head">
+          <h2 id="question-title">Verity needs an answer</h2>
+          <button id="question-close" class="close" type="button">Close</button>
+        </header>
+        <p id="question-text" class="confirm-text"></p>
+        <div id="question-choices" class="confirm-actions"></div>
+        <p class="confirm-note">Or type your answer in the box below.</p>
       </div>
     </div>
 

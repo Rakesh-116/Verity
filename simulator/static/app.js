@@ -177,7 +177,7 @@ async function processNextTurn() {
 
 async function ask(rawText, personId = speaker.value) {
   const text = rawText.replace(/^alexa[, ]*/i, "").trim(); if (!text) return;
-  renderQuestion(null); addMessage("user", PEOPLE[personId].label, text, personId); startProgress(); characters[personId].status = "busy"; renderCharacters(); status.textContent = "Agent is choosing tools…";
+  hideOverlay("question-overlay"); addMessage("user", PEOPLE[personId].label, text, personId); startProgress(); characters[personId].status = "busy"; renderCharacters(); status.textContent = "Agent is choosing tools…";
   try {
     const response = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ session_id: sessionId, person_id: personId, text }) });
     const result = await response.json(); if (!response.ok) throw new Error(result.error || "Request failed");
@@ -258,6 +258,24 @@ document.querySelector("#close-household").addEventListener("click", () => hideO
 
 // A ride waiting for a yes shows as a popup on top of the house, with Confirm and Not now.
 let confirmShownFor = null;
+// The booking popup counts the driver's wait down, second by second, and then says the driver has arrived.
+let bookingCountdown = null;
+function bookingLine(booking, remaining) {
+  const when = remaining > 0 ? `Driver arrives in ${remaining} second${remaining === 1 ? "" : "s"} (simulated).` : "Driver has arrived (simulated).";
+  return `${booking.provider} ride for ${booking.name} to ${booking.destination}. ${when} ₹${booking.price_inr}. Reference ${booking.reference}.`;
+}
+function startBookingCountdown(booking) {
+  bookingCountdown = { booking, startedAt: Date.now() };
+  document.querySelector("#confirm-text").textContent = bookingLine(booking, booking.pickup_seconds);
+}
+setInterval(() => {
+  if (!bookingCountdown) return;
+  const { booking, startedAt } = bookingCountdown;
+  const remaining = Math.max(0, booking.pickup_seconds - Math.floor((Date.now() - startedAt) / 1000));
+  if (!document.querySelector("#confirm-overlay").hidden) document.querySelector("#confirm-text").textContent = bookingLine(booking, remaining);
+  if (remaining === 0) bookingCountdown = null;
+}, 250); // a quarter-second check keeps the number within a quarter-second of the real time
+
 async function checkPending() {
   try {
     const response = await fetch(`/api/progress?session_id=${encodeURIComponent(sessionId)}`);
@@ -270,7 +288,7 @@ async function checkPending() {
     const bookedKey = booking ? `booked:${booking.reference}` : null;
     if (booking && bookedKey !== confirmShownFor) {
       document.querySelector("#confirm-title").textContent = "Ride booked (simulated)";
-      document.querySelector("#confirm-text").textContent = `${booking.provider} ride for ${booking.name} to ${booking.destination}. Driver arrives in about ${booking.pickup_seconds} seconds (simulated). ₹${booking.price_inr}. Reference ${booking.reference}.`;
+      startBookingCountdown(booking);
       document.querySelector("#confirm-actions").hidden = true;
       document.querySelector("#confirm-done").hidden = false;
       showOverlay("confirm-overlay");
@@ -314,7 +332,7 @@ function makeMovable(card) {
     window.addEventListener("pointerup", up);
   });
 }
-["#thinking-card", "#confirm-overlay .overlay-card", "#ride-overlay .overlay-card", "#household-modal .overlay-card"].forEach((selector) => {
+["#thinking-card", "#confirm-overlay .overlay-card", "#ride-overlay .overlay-card", "#household-modal .overlay-card", "#question-overlay .overlay-card"].forEach((selector) => {
   const card = document.querySelector(selector);
   if (card) makeMovable(card);
 });
@@ -329,18 +347,21 @@ document.querySelector("#sim-time").addEventListener("change", async (event) => 
 let progressTimer = null;
 const IDLE_AGENT_TEXT = "Ready. Ask for something, or try the time tick.";
 // A question from Verity is answered with buttons under its message. Each button sends the answer as a message.
+// The question opens as a popup (movable, resizable), with its answers as buttons. Typing an answer also works.
 function renderQuestion(question) {
-  const box = document.querySelector("#question-actions");
-  box.replaceChildren();
-  if (!question) { box.hidden = true; return; }
+  const choices = document.querySelector("#question-choices");
+  choices.replaceChildren();
+  if (!question) { hideOverlay("question-overlay"); return; }
+  document.querySelector("#question-text").textContent = question.text;
   question.options.forEach((option, index) => {
     const button = el("button", index === 0 ? "primary" : "secondary", option === "cheapest" ? "Cheapest" : option === "fastest" ? "Fastest" : option);
     button.type = "button";
-    button.addEventListener("click", () => { box.hidden = true; enqueueAsk(option, speaker.value); });
-    box.append(button);
+    button.addEventListener("click", () => { hideOverlay("question-overlay"); enqueueAsk(option, speaker.value); });
+    choices.append(button);
   });
-  box.hidden = false;
+  showOverlay("question-overlay");
 }
+document.querySelector("#question-close").addEventListener("click", () => hideOverlay("question-overlay"));
 
 function showThinking() {
   document.querySelector("#thinking-card").hidden = false;
