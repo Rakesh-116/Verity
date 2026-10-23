@@ -146,6 +146,13 @@ def _tool_events(result: dict[str, Any]) -> list[dict[str, Any]]:
 RUN_TIME_LIMIT_S = 60
 # A rider who has left on a ride comes back after this many real seconds (the page shows the countdown).
 RIDER_RETURN_AFTER_S = 180
+# Tools that approve or carry out an action. The model may propose; only the person's Accept (the decision endpoint)
+# runs these. A model that asks for one anyway is refused, and the refusal is recorded.
+MODEL_BLOCKED_TOOLS = {
+    "approve_ride_booking", "book_ride", "approve_order", "place_order", "approve_ride_hedge",
+    "start_ride_hedge", "approve_energy_saving_proposal", "execute_energy_saving_proposal",
+}
+BLOCKED_RESULT = {"is_error": False, "output": {"success": False, "reason": "needs_person_approval"}}
 # When someone starts watching TV, the others at home are asked to join. If they decline, they go to one of these rooms.
 WATCH_ROOMS = {"son": ["bedroom", "living_room"], "amma": ["kitchen", "living_room"]}
 
@@ -611,7 +618,7 @@ class AgentHost:
         request_id: str | None = None,
     ) -> dict[str, Any]:
         try:
-            mcp_tools = await self._gateway.list_tools()
+            mcp_tools = [tool for tool in await self._gateway.list_tools() if tool["name"] not in MODEL_BLOCKED_TOOLS]
         except Exception as error:
             return {
                 "speech": "I can't reach the local Verity MCP server yet.",
@@ -766,7 +773,7 @@ class AgentHost:
             for call in tool_calls:
                 arguments = json.loads(call.function.arguments or "{}")
                 progress["current"] = describe_doing(call.function.name, arguments)
-                result = asyncio.run(self._gateway.call_tool(call.function.name, arguments))
+                result = BLOCKED_RESULT if call.function.name in MODEL_BLOCKED_TOOLS else asyncio.run(self._gateway.call_tool(call.function.name, arguments))
                 narrated = describe_call(call.function.name, arguments, result)
                 self._add_step(progress, narrated["text"], narrated["ok"])
                 trace.append(
@@ -854,7 +861,9 @@ class AgentHost:
             for tool_use in tool_uses:
                 name = tool_use["name"]
                 arguments = tool_use.get("input", {})
-                if name not in tool_names or not isinstance(arguments, dict):
+                if name in MODEL_BLOCKED_TOOLS:
+                    result = BLOCKED_RESULT
+                elif name not in tool_names or not isinstance(arguments, dict):
                     result = {
                         "is_error": True,
                         "output": {"reason": "invalid_tool_request"},
