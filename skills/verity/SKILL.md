@@ -59,6 +59,9 @@ home. Use the MCP tools to inspect live state before claiming facts or actions.
 - When you compare rides, name each platform with its price and driver time,
   then say which one you recommend and why. For example: "QuickRide ₹95, 5 min;
   CityCab ₹125, 4 min. I recommend CityCab for the faster pickup."
+- Never say "this ride" or "that ride" after a comparison. If you ask which
+  ride to book, name the platform in the question, for example "Shall I book
+  CityCab for ₹125, 4 min?" or ask which of the named platforms they want.
 - For "watch TV" or "a movie", call `start_watch` with the speaker's person ID.
   The TV and lights follow the house rule already in this skill.
 - For "massage" or "help Amma", call `start_robot_massage` with the target

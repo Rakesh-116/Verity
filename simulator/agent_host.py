@@ -204,6 +204,18 @@ class AgentHost:
                 if isinstance(output, dict) and output.get("needs_preference"):
                     result["question"] = {"key": "ride_priority", "text": output["needs_preference"]["question"], "options": output["needs_preference"]["options"], "person_id": output.get("person_id")}
                     self._pending.setdefault(session_id or "local", {})["awaiting"] = {"person_id": output.get("person_id"), "ride_text": text}
+        # After a comparison, "this ride" is not clear: the question names each ride, with its price and time, and each ride is a button.
+        compared = next((e["result"]["output"] for e in trace if e.get("kind") == "tool" and e["name"] == "compare_ride_options" and isinstance(e["result"].get("output"), dict) and e["result"]["output"].get("quotes")), None)
+        sentences = re.split(r"(?<=[.!?])\s+", result.get("speech", "").strip()) if result.get("speech") else []
+        last = sentences[-1] if sentences else ""
+        if compared and not result.get("question") and last.endswith("?") and re.search(r"\b(this|that)\b", last, re.I):
+            quotes = [q for q in compared["quotes"] if q.get("provider")]
+            names = {q["provider"]: PROVIDER_NAMES.get(q["provider"], q["provider"]) for q in quotes}
+            if quotes and not any(name.lower() in last.lower() for name in names.values()):
+                details = ", ".join(f"{names[q['provider']]} ₹{q['price_inr']} ({q['eta_minutes']} min)" for q in quotes)
+                question_text = f"Which ride do you want: {details}?"
+                result["question"] = {"key": "platform", "text": question_text, "options": list(names.values()), "person_id": compared.get("person_id")}
+                result["speech"] = " ".join(sentences[:-1] + [question_text]).strip()
         checked = check_claims(result.get("speech", ""), trace)
         if checked["overridden"]:
             result["speech"] = checked["speech"]
