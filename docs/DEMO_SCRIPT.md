@@ -11,8 +11,8 @@ No music. Do not show provider logos or third-party brand names on screen.
 - Browser at `http://localhost:8770/?debug=1`, with the **Manual** mode and the
   "Scripted demo · no AI key" label visible. Recording on the scripted path means
   no model quota is used, and the label says so on screen.
-- Before recording: reload the page, set **Papa**'s ride preference to **fastest**
-  or **cheapest** only by asking on screen, and make sure Amma is away on her ride
+- Before recording: reload the page, set **Father**'s ride preference to **fastest**
+  or **cheapest** only by asking on screen, and make sure Mother is away on her ride
   (the house timer shows "back in" time).
 - Start each take with a fresh page, so an old popup does not appear in the take.
 
@@ -21,13 +21,13 @@ No music. Do not show provider logos or third-party brand names on screen.
 | Time | On screen | Narration | Shows |
 | --- | --- | --- | --- |
 | 0:00–0:12 | Title card, then the house | "This is Verity, a household agent. The Alexa+ experience here is simulated; it talks to a real MCP server." | Disclosure, floor plan |
-| 0:12–0:35 | Type: "Book Papa a ride to the office." Papa's question appears in its own popup: cheapest or fastest. Answer it. | "It asks once and saves the answer for Papa. It compares simulated rides with price, time and distance." | Question popup, saved preference |
+| 0:12–0:35 | Type: "Book Father a ride to the office." Father's question appears in its own popup: cheapest or fastest. Answer it. | "It asks once and saves the answer for Father. It compares simulated rides with price, time and distance." | Question popup, saved preference |
 | 0:35–0:55 | The approval card: the chosen ride, why it was chosen, and the distance. Press **Accept**. | "Nothing is booked until I accept. Accept books it, and the house shows the driver's countdown." | Approval card, booking countdown |
-| 0:55–1:10 | The house: Amma's chip shows "back in" with a countdown. | "Amma is on her ride. The server counts her return, and she comes home when the time is up." | Return countdown |
-| 1:10–1:25 | Type: "Papa wants to watch TV." Son's card asks to join: **Join** or **Not now**. Press **Join**. | "Everyone at home is asked separately. Joining moves them to the TV room." | Invitation card, room change |
+| 0:55–1:10 | The house: Mother's chip shows "back in" with a countdown. | "Mother is on her ride. The server counts her return, and she comes home when the time is up." | Return countdown |
+| 1:10–1:25 | Type: "Father wants to watch TV." Son's card asks to join: **Join** or **Not now**. Press **Join**. | "Everyone at home is asked separately. Joining moves them to the TV room." | Invitation card, room change |
 | 1:25–1:40 | Type: "order milk and bread." Accept the order card. | "Food and groceries follow the same rule: propose, show the price, then order only after Accept." | Order card, order reply |
-| 1:40–1:55 | Type: "Help Amma with a massage" (Amma is still away). | "Housebot cannot help someone who is out. Verity says when she is back and does nothing else." | Refusal with return time |
-| 1:55–2:15 | Type: "Book Amma a ride to the market," then press **Decline** on that card. | "A decline names the ride it declined and leaves the others alone." | Decline reply |
+| 1:40–1:55 | Type: "Help Mother with a massage" (Mother is still away). | "Housebot cannot help someone who is out. Verity says when she is back and does nothing else." | Refusal with return time |
+| 1:55–2:15 | Type: "Book Mother a ride to the market," then press **Decline** on that card. | "A decline names the ride it declined and leaves the others alone." | Decline reply |
 | 2:15–2:35 | Point at "What Verity did": one plain sentence per step. Open Technical details once. | "Every step is listed in plain words, and the raw result is one click away. The model only picks tools; the rules are in code." | Step list, raw result |
 | 2:35–2:48 | Closing card. | "Verity is a real MCP server with a simulated Alexa+ host. The code is open source under MIT." | Repo URL, license |
 

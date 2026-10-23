@@ -159,13 +159,13 @@ controls.
 
 ### Scripted commands (no key needed)
 
-- "Book Amma a ride to the market" (then Yes or Accept)
-- "Papa wants to watch TV"
-- "Help Amma with a massage"
+- "Book Mother a ride to the market" (then Yes or Accept)
+- "Father wants to watch TV"
+- "Help Mother with a massage"
 - "order milk and bread"
 - Answers to "cheapest or fastest?"
 
-Amma starts out of the house until 09:00 on the simulated clock. The house clock
+Mother starts out of the house until 09:00 on the simulated clock. The house clock
 can be changed with the debug-only time control.
 
 ## Tests
