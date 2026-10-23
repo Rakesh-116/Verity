@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 from dataclasses import replace
 import time
 import os
@@ -55,6 +56,51 @@ def household_context(text: str, speaker: str | None, waiting: bool = False) -> 
 def _is_rate_limit(error: Exception) -> bool:
     text = str(error).lower()
     return "429" in text or "rate limit" in text or type(error).__name__ == "RateLimitError"
+
+
+def _is_daily_limit(error: Exception) -> bool:
+    text = str(error).lower()
+    return "per day" in text or "tokens per day" in text or "(tpd)" in text
+
+
+def _retry_after(error: Exception) -> float | None:
+    """Groq says how long to wait in the message: 'Please try again in 3.26s'."""
+    match = re.search(r"try again in ([0-9.]+)s", str(error))
+    return float(match.group(1)) if match else None
+
+
+# Each keyword group adds the tools it needs. Every request also gets the core set. A short or unclear
+# request gets every tool, so a tool is only left out when the wording clearly points away from it.
+CORE_TOOLS = {
+    "get_person_context", "get_household", "get_home_state", "get_active_speaker", "set_active_speaker",
+    "resolve_household_names", "list_pending_actions", "get_last_session_summary", "get_assessment_status",
+}
+TOOL_GROUPS = [
+    (r"ride|cab|taxi|car\b|airport|market|hedge|book|meeting|deadline|travel|bus|train|late|school|\bpg\b",
+     {"compare_ride_options", "compare_travel_options", "create_ride_booking_proposal", "approve_ride_booking",
+      "book_ride", "start_ride_hedge", "get_ride_hedge_status", "list_ride_hedges", "cancel_ride_hedge",
+      "create_ride_hedge_proposal", "approve_ride_hedge", "find_meeting_deadline"}),
+    (r"order|buy|grocer|price|shop|cart|milk|food|deliver", {"compare_item_prices", "create_order_proposal", "approve_order", "place_order"}),
+    (r"watch|tv|massage|robot|housebot|clean|help|relax|stop|finish", {"start_watch", "start_robot_massage", "end_household_task", "send_robot_to_room", "get_robot_status", "get_scene", "remember_scene"}),
+    (r"light|fan|device|plug|energy|power|\bac\b|heater|turn|switch|lamp|\bon\b|\boff\b", {"list_devices", "set_device_state", "get_energy_saving_opportunities", "create_energy_saving_proposal", "approve_energy_saving_proposal", "execute_energy_saving_proposal", "get_occupancy"}),
+    (r"\b(away|home|leave|left|back|out|move|going|room|where|clock|time|tomorrow|am|pm)\b|\d:\d\d",{"set_member_presence", "move_person", "set_sim_clock", "get_occupancy", "get_sim_time", "get_routines"}),
+    (r"prefer|remember|usual|routine|always|save|style|default|favou?rite|policy", {"remember_preference", "get_routines", "remember_scene"}),
+    (r"escalat|audit|verify|log|history|proof|review|case", {"open_escalation", "list_escalations", "verify_audit_trail"}),
+]
+
+
+def tools_for_request(text: str, mcp_tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    if len(text.split()) < 4:
+        return mcp_tools
+    wanted = set(CORE_TOOLS)
+    matched = False
+    for pattern, names in TOOL_GROUPS:
+        if re.search(pattern, text.lower()):
+            wanted |= names
+            matched = True
+    if not matched:
+        return mcp_tools
+    return [tool for tool in mcp_tools if tool["name"] in wanted]
 
 
 def _tool_events(result: dict[str, Any]) -> list[dict[str, Any]]:
@@ -322,13 +368,15 @@ class AgentHost:
         progress_key = session_id or "local"
         progress = {"busy": True, "current": "Thinking about what you asked…", "steps": []}
         self._progress[progress_key] = progress
+        # Only the tools this request needs are sent: fewer tokens per call, so the per-minute limit is hit less.
+        turn_tools = tools_for_request(text, mcp_tools)
         try:
             base_trace = list(trace)
-            result = await self._llm_turn(model_text, mcp_tools, active_speaker_id, trace, history, progress)
+            result = await self._llm_turn(model_text, turn_tools, active_speaker_id, trace, history, progress)
             if not _tool_events(result) and is_action_request(text):
                 # Forced tool use: an action with no tool call gets one retry, then an explicit failure.
                 trace[:] = base_trace
-                result = await self._llm_turn(model_text + NO_TOOL_NOTE, mcp_tools, active_speaker_id, trace, history, progress)
+                result = await self._llm_turn(model_text + NO_TOOL_NOTE, turn_tools, active_speaker_id, trace, history, progress)
                 if not _tool_events(result):
                     result = {
                         "speech": "I couldn't act on that, so nothing was booked or changed. Please try again.",
@@ -351,10 +399,16 @@ class AgentHost:
             import traceback
 
             traceback.print_exc()
-            if "429" in str(error) or "rate limit" in str(error).lower():
-                # The provider's usage limit, not a fault in the app: say so plainly.
+            if _is_rate_limit(error):
+                # Not a fault in the app. A daily limit needs a wait of hours; a per-minute limit clears in seconds.
+                if _is_daily_limit(error):
+                    speech = "The AI model has reached its usage limit for today, so I can't answer with it. Use the scripted demo commands, which need no AI key, or try again later."
+                else:
+                    wait = _retry_after(error)
+                    hint = f" Try again in about {max(1, round(wait))} seconds." if wait else " Try again in a moment."
+                    speech = "The AI model is handling too many requests right now." + hint
                 return {
-                    "speech": "The AI model has reached its usage limit for now, so I can't answer with it. Try again in a little while, or use the scripted demo commands, which need no AI key.",
+                    "speech": speech,
                     "trace": [{"kind": "provider_limit", "detail": str(error)[:300]}],
                 }
             return {
@@ -569,13 +623,25 @@ class AgentHost:
         turn is answered by the fallback, and the answer says which model gave it."""
         self._last_fallback = None
         base = list(trace)
+        settings = AISettings.from_environment()
         try:
             return await asyncio.to_thread(self._run_llm_loop, model_text, mcp_tools, speaker, trace, history, progress)
         except Exception as error:
-            settings = AISettings.from_environment()
-            if not (_is_rate_limit(error) and settings.fallback_provider):
+            if not _is_rate_limit(error):
                 raise
             trace[:] = base
+            wait = _retry_after(error)
+            if not _is_daily_limit(error) and wait is not None and wait <= 10:
+                # A per-minute limit clears in seconds: wait as the provider asks, then try once more.
+                await asyncio.sleep(wait + 0.5)
+                try:
+                    return await asyncio.to_thread(self._run_llm_loop, model_text, mcp_tools, speaker, trace, history, progress)
+                except Exception as retry_error:
+                    if not _is_rate_limit(retry_error):
+                        raise
+                    trace[:] = base
+            if not settings.fallback_provider:
+                raise
             fallback = replace(settings, provider=settings.fallback_provider)
             name = fallback.ollama_model if fallback.provider == "ollama" else fallback.provider
             self._last_fallback = f"{fallback.provider}:{name}"
