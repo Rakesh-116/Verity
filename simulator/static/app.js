@@ -84,8 +84,9 @@ async function refreshState() {
     // The pill is only for the labelled scripted demo. Which model answers is a developer detail.
     const pill = document.querySelector("#mode-pill");
     const scripted = data.mode === "scripted";
-    pill.hidden = !scripted && !document.body.classList.contains("debug");
-    pill.textContent = scripted ? "Scripted demo · no AI key" : `Debug: AI answers ${String(data.mode || "").replace("ai:", "")}`;
+    const fallback = String(data.mode || "").startsWith("fallback:");
+    pill.hidden = !scripted && !fallback && !document.body.classList.contains("debug");
+    pill.textContent = scripted ? "Scripted demo · no AI key" : fallback ? `Fallback model: ${String(data.mode).replace("fallback:", "").replace("ollama:", "Ollama · ")}` : `Debug: AI answers ${String(data.mode || "").replace("ai:", "")}`;
     pill.className = `mode-pill ${scripted ? "scripted" : "ai"}`;
     if (data.clock?.sim_time) {
       document.querySelector("#sim-clock").textContent = `SIM TIME ${data.clock.sim_time}`;

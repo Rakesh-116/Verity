@@ -121,7 +121,9 @@ Without an AI key the simulator runs a **labelled scripted demo**: the header sa
 "Book Amma a ride to the market" (then a confirmation popup, then the booking),
 "Papa wants to watch TV", and "Help Amma" (a simulated, non-medical massage). For
 anything else it lists what it can do and invents no action. With a key, the model
-chooses the tools. Amma starts out of the house until 09:00 (simulated house clock;
+chooses the tools. A local Ollama model can answer when the primary provider is
+rate-limited: set `AI_FALLBACK_PROVIDER=ollama` and `OLLAMA_MODEL` (for example
+`qwen3.5:4b`, which supports tool calling). The header shows when the fallback answers. Amma starts out of the house until 09:00 (simulated house clock;
 change it with the debug-only time control).
 
 To run the server over stdio for an MCP client instead:

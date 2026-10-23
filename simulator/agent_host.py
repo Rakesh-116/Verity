@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from dataclasses import replace
 import time
 import os
 import sys
@@ -51,6 +52,11 @@ def household_context(text: str, speaker: str | None, waiting: bool = False) -> 
     return text + "\n" + " ".join(parts)
 
 
+def _is_rate_limit(error: Exception) -> bool:
+    text = str(error).lower()
+    return "429" in text or "rate limit" in text or type(error).__name__ == "RateLimitError"
+
+
 def _tool_events(result: dict[str, Any]) -> list[dict[str, Any]]:
     return [event for event in result.get("trace", []) if event.get("kind") == "tool"]
 
@@ -74,6 +80,8 @@ class AgentHost:
         self._scene: dict[str, Any] = {}
         # A ride waiting for the person's "yes", per session (scripted demo only).
         self._pending: dict[str, dict[str, Any]] = {}
+        # Set when the last model answer came from the fallback provider, so the page can say so.
+        self._last_fallback: str | None = None
 
     def progress(self, session_id: str | None) -> dict[str, Any]:
         """What Verity is doing right now for this session, in plain words, and any ride waiting for a yes."""
@@ -217,9 +225,13 @@ class AgentHost:
             return bool(settings.groq_api_key)
         if settings.provider == "openai":
             return bool(settings.openai_api_key)
+        if settings.provider == "ollama":
+            return True
         return settings.provider == "bedrock"
 
     async def mode(self) -> str:
+        if self._last_fallback:
+            return f"fallback:{self._last_fallback}"
         if not self.llm_configured():
             return "scripted"
         return f"ai:{AISettings.from_environment().provider}"
@@ -312,15 +324,11 @@ class AgentHost:
         self._progress[progress_key] = progress
         try:
             base_trace = list(trace)
-            result = await asyncio.to_thread(
-                self._run_llm_loop, model_text, mcp_tools, active_speaker_id, trace, history, progress
-            )
+            result = await self._llm_turn(model_text, mcp_tools, active_speaker_id, trace, history, progress)
             if not _tool_events(result) and is_action_request(text):
                 # Forced tool use: an action with no tool call gets one retry, then an explicit failure.
                 trace[:] = base_trace
-                result = await asyncio.to_thread(
-                    self._run_llm_loop, model_text + NO_TOOL_NOTE, mcp_tools, active_speaker_id, trace, history, progress
-                )
+                result = await self._llm_turn(model_text + NO_TOOL_NOTE, mcp_tools, active_speaker_id, trace, history, progress)
                 if not _tool_events(result):
                     result = {
                         "speech": "I couldn't act on that, so nothing was booked or changed. Please try again.",
@@ -365,8 +373,9 @@ class AgentHost:
         trace: list[dict[str, Any]],
         history: list[dict[str, str]],
         progress: dict[str, Any],
+        settings: AISettings | None = None,
     ) -> dict[str, Any]:
-        settings = AISettings.from_environment()
+        settings = settings or AISettings.from_environment()
         if settings.provider == "bedrock":
             return self._run_bedrock_loop(
                 settings, text, mcp_tools, active_speaker_id, trace, history, progress
@@ -554,8 +563,29 @@ class AgentHost:
             ],
         }
 
+    async def _llm_turn(self, model_text: str, mcp_tools: list[dict[str, Any]], speaker: str | None,
+                        trace: list[dict[str, Any]], history: list[dict[str, str]], progress: dict[str, Any]) -> dict[str, Any]:
+        """One model call. If the primary provider is rate-limited and a fallback is configured, the same
+        turn is answered by the fallback, and the answer says which model gave it."""
+        self._last_fallback = None
+        base = list(trace)
+        try:
+            return await asyncio.to_thread(self._run_llm_loop, model_text, mcp_tools, speaker, trace, history, progress)
+        except Exception as error:
+            settings = AISettings.from_environment()
+            if not (_is_rate_limit(error) and settings.fallback_provider):
+                raise
+            trace[:] = base
+            fallback = replace(settings, provider=settings.fallback_provider)
+            name = fallback.ollama_model if fallback.provider == "ollama" else fallback.provider
+            self._last_fallback = f"{fallback.provider}:{name}"
+            return await asyncio.to_thread(self._run_llm_loop, model_text, mcp_tools, speaker, trace, history, progress, fallback)
+
     @staticmethod
     def _client_for(settings: AISettings) -> tuple[Any, str]:
+        if settings.provider == "ollama":
+            # Ollama's OpenAI-compatible endpoint; the key is a placeholder it does not check.
+            return OpenAI(base_url=settings.ollama_base_url, api_key="ollama"), settings.ollama_model
         if settings.provider == "groq":
             if not settings.groq_api_key:
                 raise ValueError("GROQ_API_KEY is required when AI_PROVIDER=groq.")
