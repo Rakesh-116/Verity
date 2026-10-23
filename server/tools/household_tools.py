@@ -20,6 +20,7 @@ def get_household() -> dict[str, Any]:
             "aliases": member.get("aliases", []),
             "presence": presence.get("presence"),
             "return_at": presence.get("return_at"),
+            "return_in_seconds": presence.get("return_in_seconds"),
             "ride_priority": saved.get("ride_priority") or None,
             "usual_destination": saved.get("usual_destination"),
         })
@@ -32,9 +33,15 @@ def resolve_household_names(text: str) -> dict[str, Any]:
     return {"text": text, "mentions": mentions, "count": len(mentions)}
 
 
-def set_member_presence(person_id: str, presence: str, return_at: str | None = None) -> dict[str, Any]:
-    """Mark a member home or away. Away needs a return time (HH:MM) so the house can show when they are back."""
-    result = set_presence(person_id, presence, return_at)
+def set_member_presence(
+    person_id: str,
+    presence: str,
+    return_at: str | None = None,
+    return_in_seconds: float | None = None,
+    return_time_unknown: bool = False,
+) -> dict[str, Any]:
+    """Mark a member home or away. Away needs a return time: HH:MM, or return_in_seconds, or return_time_unknown=True."""
+    result = set_presence(person_id, presence, return_at, return_in_seconds, return_time_unknown)
     if result.get("success"):
         append_action_log(person_id, "presence", f"Marked {person_id} {presence}.", result)
     return result

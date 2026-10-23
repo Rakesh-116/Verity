@@ -1,0 +1,10 @@
+{
+  "robot_id": "verity.housebot.01",
+  "display_name": "Housebot",
+  "room": "living_room",
+  "battery_percent": 86,
+  "status": "idle",
+  "task": null,
+  "availability": "simulated",
+  "source": "verity.virtual_home"
+}

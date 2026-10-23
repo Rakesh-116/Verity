@@ -8,7 +8,8 @@ from pathlib import Path
 
 
 PROJECT_DIRECTORY = Path(__file__).resolve().parents[1]
-SEED_STATE_DIRECTORY = PROJECT_DIRECTORY / "server" / "state"
+# Committed seed copies, so tests never depend on the live house state the simulator changes.
+SEED_STATE_DIRECTORY = PROJECT_DIRECTORY / "tests" / "seed_state"
 
 
 def make_isolated_state() -> Path:

@@ -1,5 +1,6 @@
 """Primitive mobility tools with adapters, deterministic ranking, and explicit approval."""
 
+import re
 from typing import Any
 
 from providers.ride_simulated import SimulatedRideProvider
@@ -64,6 +65,11 @@ def compare_ride_options(person_id: str, destination: str | None = None, ride_ty
     return result
 
 
+def _place(name: str | None) -> str | None:
+    cleaned = re.sub(r"^the\s+", "", (name or "").strip().lower()).rstrip(".!? ").strip()
+    return cleaned or None
+
+
 def create_ride_booking_proposal(person_id: str, provider: str, ride_id: str, destination: str | None = None) -> dict[str, Any]:
     """Create a pending ride proposal; a later explicit approval is required to book it."""
     preferences, error = _person_preferences(person_id)
@@ -73,7 +79,8 @@ def create_ride_booking_proposal(person_id: str, provider: str, ride_id: str, de
     if adapter is None or not ride_id.startswith(f"ride.{provider}.{person_id}."):
         return {"person_id": person_id, "provider": provider, "ride_id": ride_id, "success": False, "reason": "ride_quote_not_found"}
     # Use the destination the person asked for; fall back to the saved one only when none was given.
-    resolved_destination = destination or preferences.get("usual_destination")
+    # "the market", "Market." and "market" are the same place, so they must make the same proposal.
+    resolved_destination = _place(destination) or preferences.get("usual_destination")
     if not resolved_destination:
         return {"person_id": person_id, "provider": provider, "ride_id": ride_id, "success": False, "reason": "needs_clarification", "field": "destination", "message": "Where should the ride go?"}
     quote = adapter.quote(person_id, resolved_destination, preferences.get("usual_ride_type") or "auto")

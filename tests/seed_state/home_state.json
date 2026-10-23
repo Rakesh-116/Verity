@@ -1,0 +1,75 @@
+{
+  "living_room": {
+    "occupied": false,
+    "person_count": 0,
+    "occupants": [],
+    "devices": [
+      {
+        "id": "home.living_room.light.01",
+        "type": "light",
+        "state": "on"
+      },
+      {
+        "id": "home.living_room.fan.01",
+        "type": "fan",
+        "state": "on"
+      }
+    ]
+  },
+  "bedroom": {
+    "occupied": true,
+    "person_count": 1,
+    "occupants": [
+      "son"
+    ],
+    "devices": [
+      {
+        "id": "home.bedroom.light.01",
+        "type": "light",
+        "state": "on"
+      },
+      {
+        "id": "home.bedroom.fan.01",
+        "type": "fan",
+        "state": "on"
+      }
+    ]
+  },
+  "kitchen": {
+    "occupied": false,
+    "person_count": 0,
+    "occupants": [],
+    "devices": [
+      {
+        "id": "home.kitchen.light.01",
+        "type": "light",
+        "state": "on"
+      },
+      {
+        "id": "home.kitchen.fan.01",
+        "type": "fan",
+        "state": "off"
+      }
+    ]
+  },
+  "tv_room": {
+    "occupied": true,
+    "person_count": 2,
+    "occupants": [
+      "amma",
+      "papa"
+    ],
+    "devices": [
+      {
+        "id": "home.tv_room.light.01",
+        "type": "light",
+        "state": "on"
+      },
+      {
+        "id": "home.tv_room.tv.01",
+        "type": "tv",
+        "state": "on"
+      }
+    ]
+  }
+}

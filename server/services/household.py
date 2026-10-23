@@ -6,6 +6,7 @@ away member's command is refused before any tool runs.
 """
 
 import re
+import time
 from typing import Any
 
 from state.store import load_json, save_json
@@ -74,27 +75,48 @@ def set_sim_time(sim_time: str) -> dict[str, Any]:
 
 
 def get_presence(person_id: str) -> dict[str, Any]:
-    """Presence now. An away member returns home by the clock once their return time has passed."""
+    """Presence now. An away member comes home when their return time has passed: a clock time, or a real-time deadline."""
     entry = load_json(PRESENCE_FILE).get(person_id)
     if entry is None:
         return {"person_id": person_id, "success": False, "reason": "person_not_found"}
-    if entry["presence"] == "away" and entry.get("return_at") and sim_now() >= entry["return_at"]:
-        return {"person_id": person_id, "presence": "home", "return_at": None}
-    return {"person_id": person_id, "presence": entry["presence"], "return_at": entry.get("return_at")}
+    if entry["presence"] != "away":
+        return {"person_id": person_id, "presence": "home", "return_at": None, "return_in_seconds": None}
+    epoch = entry.get("return_epoch")
+    if epoch and time.time() >= epoch:
+        return {"person_id": person_id, "presence": "home", "return_at": None, "return_in_seconds": None}
+    if entry.get("return_at") and sim_now() >= entry["return_at"] and not epoch:
+        return {"person_id": person_id, "presence": "home", "return_at": None, "return_in_seconds": None}
+    seconds = max(0, round(epoch - time.time())) if epoch else None
+    return {"person_id": person_id, "presence": "away", "return_at": entry.get("return_at"), "return_in_seconds": seconds}
 
 
-def set_presence(person_id: str, presence: str, return_at: str | None = None) -> dict[str, Any]:
-    """Mark someone home or away. Away needs a return time, HH:MM, so the house can show when they are back."""
+def set_presence(
+    person_id: str,
+    presence: str,
+    return_at: str | None = None,
+    return_in_seconds: float | None = None,
+    return_time_unknown: bool = False,
+) -> dict[str, Any]:
+    """Mark someone home or away. Away needs a return time: a clock time (HH:MM), a number of seconds from now,
+    or an explicit 'unknown' when they said they are going out without saying when they will be back."""
     if person_id not in roster():
         return {"person_id": person_id, "success": False, "reason": "person_not_found", "confirmed_presence": None}
     if presence not in PRESENCE_VALUES:
         return {"person_id": person_id, "success": False, "reason": "invalid_presence", "confirmed_presence": None}
-    if presence == "away" and not (return_at and re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", return_at)):
-        return {"person_id": person_id, "success": False, "reason": "return_time_required", "confirmed_presence": None}
+    if presence == "away":
+        has_clock_time = bool(return_at and re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", return_at))
+        if not (has_clock_time or return_in_seconds or return_time_unknown):
+            return {"person_id": person_id, "success": False, "reason": "return_time_required", "confirmed_presence": None}
     data = load_json(PRESENCE_FILE)
-    data[person_id] = {"presence": presence, "return_at": return_at if presence == "away" else None}
+    away = presence == "away"
+    data[person_id] = {
+        "presence": presence,
+        "return_at": return_at if away else None,
+        "return_epoch": (time.time() + float(return_in_seconds)) if away and return_in_seconds else None,
+    }
     save_json(PRESENCE_FILE, data)
-    return {"person_id": person_id, "success": True, "confirmed_presence": presence, "return_at": data[person_id]["return_at"]}
+    current = get_presence(person_id)
+    return {"person_id": person_id, "success": True, "confirmed_presence": presence, "return_at": current.get("return_at"), "return_in_seconds": current.get("return_in_seconds")}
 
 
 def authorize(speaker: str | None, text: str) -> dict[str, Any]:

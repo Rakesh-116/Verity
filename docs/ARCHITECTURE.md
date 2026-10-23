@@ -68,3 +68,33 @@ server-side orchestration.
 Every state-changing tool returns what it confirmed changed or a specific
 failure reason. A local voice simulator must speak that result faithfully and
 never turn an unconfirmed action into a success claim.
+
+## Principal review: state, time, and requests (2026-10-23)
+
+**Who owns what.** The MCP server is the only owner of household state: presence and return times, proposals
+and their approval status, bookings, and the people and preferences in `server/state/household.db`. The
+simulator host holds only what is about the screen: the scene (who is where on screen), the list of approvals
+waiting on screen, and which riders it has already sent out. Nothing the host shows as a fact is kept
+separately from the server, so a timer, a presence, or a booking cannot disagree with the house.
+
+**Time.** Two clocks, used for different things. The house schedule (arrivals and departures by clock time)
+uses the simulated clock, `sim_clock.json`. A rider's return from a ride uses a real-time deadline that the
+server stores as `return_epoch` and counts down; the host never resets it. An "away" member needs a return
+time: a clock time, a number of seconds, or an explicit "unknown" when they said they are going out without
+saying when they will be back.
+
+**Requests.** Each request has a `request_id`. Its progress, question, approvals and booking belong to that
+request, and the page opens one popup per request. Approvals are keyed by proposal, so two requests can wait
+at once. Accept and Decline send one proposal id to `POST /api/approval`; a typed "yes" is used only when
+exactly one approval is waiting. A proposal that is the same ride, person and place as one already waiting
+is one proposal, so a destination said two ways ("market", "the market") cannot create two.
+
+**Refusals before the model.** A request for someone who is out (an away member asked for by name) is
+answered directly with the time they are back. The model is not asked to guess, and nothing is changed.
+
+**Tests.** Tests run against `tests/seed_state`, a committed copy of the seed JSON, so they never depend on the
+live house. Phase 14 covers the presence rules and duplicate proposals; phase 13 covers approvals and invitations.
+
+**Known gaps.** Ride declines cancel the proposal but do not tell the other riders; invitations do not time
+out; the scripted path tracks approvals but does not yet run several requests at once with its own popups;
+the model still has a round limit, and when it is hit the reply lists what was already done.

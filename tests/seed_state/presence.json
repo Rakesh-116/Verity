@@ -1,0 +1,15 @@
+{
+  "_note": "Who is home right now. return_at is HH:MM when away; a member returns home by the simulated clock. Simulated.",
+  "amma": {
+    "presence": "away",
+    "return_at": "09:00"
+  },
+  "papa": {
+    "presence": "home",
+    "return_at": null
+  },
+  "son": {
+    "presence": "home",
+    "return_at": null
+  }
+}

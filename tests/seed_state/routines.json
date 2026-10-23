@@ -1,0 +1,181 @@
+{
+  "_note": "Seeded household history for routine suggestions. Counts come from this data; nothing is learned by a model. weekday: 0=Monday. Events are one per week at most.",
+  "son": {
+    "weeks_observed": 8,
+    "events": [
+      {
+        "weekday": 0,
+        "hour": 10,
+        "kind": "ride",
+        "origin": "pg",
+        "dest": "office"
+      },
+      {
+        "weekday": 0,
+        "hour": 10,
+        "kind": "ride",
+        "origin": "pg",
+        "dest": "office"
+      },
+      {
+        "weekday": 0,
+        "hour": 10,
+        "kind": "ride",
+        "origin": "pg",
+        "dest": "office"
+      },
+      {
+        "weekday": 0,
+        "hour": 10,
+        "kind": "ride",
+        "origin": "pg",
+        "dest": "office"
+      },
+      {
+        "weekday": 0,
+        "hour": 10,
+        "kind": "ride",
+        "origin": "pg",
+        "dest": "office"
+      },
+      {
+        "weekday": 0,
+        "hour": 10,
+        "kind": "ride",
+        "origin": "pg",
+        "dest": "office"
+      },
+      {
+        "weekday": 0,
+        "hour": 10,
+        "kind": "ride",
+        "origin": "pg",
+        "dest": "office"
+      },
+      {
+        "weekday": 0,
+        "hour": 9,
+        "kind": "ride",
+        "origin": "pg",
+        "dest": "cafe"
+      },
+      {
+        "weekday": 1,
+        "hour": 18,
+        "kind": "ride",
+        "origin": "office",
+        "dest": "pg"
+      },
+      {
+        "weekday": 1,
+        "hour": 18,
+        "kind": "ride",
+        "origin": "office",
+        "dest": "pg"
+      },
+      {
+        "weekday": 1,
+        "hour": 18,
+        "kind": "ride",
+        "origin": "office",
+        "dest": "pg"
+      },
+      {
+        "weekday": 1,
+        "hour": 18,
+        "kind": "ride",
+        "origin": "office",
+        "dest": "pg"
+      },
+      {
+        "weekday": 1,
+        "hour": 18,
+        "kind": "ride",
+        "origin": "office",
+        "dest": "pg"
+      },
+      {
+        "weekday": 1,
+        "hour": 18,
+        "kind": "ride",
+        "origin": "office",
+        "dest": "pg"
+      }
+    ],
+    "choices": [
+      {
+        "chosen": {
+          "fare_inr": 90,
+          "eta_min": 5
+        },
+        "others": [
+          {
+            "fare_inr": 60,
+            "eta_min": 12
+          }
+        ]
+      },
+      {
+        "chosen": {
+          "fare_inr": 60,
+          "eta_min": 12
+        },
+        "others": [
+          {
+            "fare_inr": 90,
+            "eta_min": 5
+          }
+        ]
+      },
+      {
+        "chosen": {
+          "fare_inr": 100,
+          "eta_min": 4
+        },
+        "others": [
+          {
+            "fare_inr": 70,
+            "eta_min": 10
+          }
+        ]
+      },
+      {
+        "chosen": {
+          "fare_inr": 55,
+          "eta_min": 14
+        },
+        "others": [
+          {
+            "fare_inr": 80,
+            "eta_min": 6
+          }
+        ]
+      },
+      {
+        "chosen": {
+          "fare_inr": 85,
+          "eta_min": 6
+        },
+        "others": [
+          {
+            "fare_inr": 65,
+            "eta_min": 11
+          }
+        ]
+      },
+      {
+        "chosen": {
+          "fare_inr": 50,
+          "eta_min": 15
+        },
+        "others": [
+          {
+            "fare_inr": 75,
+            "eta_min": 8
+          }
+        ]
+      }
+    ],
+    "choices_note": "Seeded past ride choices for estimating value of time. Not real history."
+  }
+}

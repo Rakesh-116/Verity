@@ -1,0 +1,9 @@
+{
+  "_note": "Simulated calendar for the demo household. Not a real calendar integration. weekday: 0=Monday. start is 24-hour HH:MM.",
+  "son": {
+    "events": [
+      {"weekday": 0, "start": "11:30", "title": "Client review", "location": "office"},
+      {"weekday": 2, "start": "09:30", "title": "Standup", "location": "office"}
+    ]
+  }
+}
