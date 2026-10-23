@@ -24,8 +24,12 @@ def list_pending_proposals(person_id: str, domain: str | None = None) -> list[di
     ]
 
 
-def _same_request(a: dict[str, Any], b: dict[str, Any]) -> bool:
-    """Two requests are the same if they ask for the same thing; timestamps and expiry are ignored."""
+def _same_request(a: dict[str, Any], b: dict[str, Any], domain: str = "") -> bool:
+    """Two requests are the same if they ask for the same thing; timestamps and expiry are ignored.
+    A ride is the same ride when the platform, the ride and the destination match: its price and time
+    move from minute to minute, and that must not make a second proposal for the same ride."""
+    if domain == "ride_booking":
+        return all(a.get(k) == b.get(k) for k in ("provider", "ride_id", "destination"))
     strip = lambda value: {k: v for k, v in value.items() if k not in {"expires_at", "meeting_at"}}
     return strip(a) == strip(b)
 
@@ -37,7 +41,7 @@ def create_proposal(person_id: str, domain: str, payload: dict[str, Any]) -> dic
     """
     store = load_json(PENDING_ACTIONS_FILE)
     for existing in store["proposals"].values():
-        if existing["person_id"] == person_id and existing["domain"] == domain and existing["status"] == "pending_approval" and _same_request(existing["payload"], payload):
+        if existing["person_id"] == person_id and existing["domain"] == domain and existing["status"] == "pending_approval" and _same_request(existing["payload"], payload, domain):
             return existing
     proposal_id = f"proposal.{domain}.{uuid4().hex[:12]}"
     proposal = {

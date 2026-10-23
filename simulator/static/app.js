@@ -99,7 +99,9 @@ async function refreshState() {
     }
     const departed = Object.keys(data.scene || {}).filter((id) => data.scene[id].stage === "departed");
     renderHousehold(data.household?.members || [], new Set([...presenceAway, ...departed]));
-    renderDevices(data.home, data.robot, data.proactive); speaker.value = data.active_speaker.person_id;
+    renderDevices(data.home, data.robot, data.proactive);
+    // Only set the dropdown before the person has chosen someone; after that, their choice stays.
+    if (!speaker.dataset.chosen) speaker.value = data.active_speaker.person_id;
     const lights = {}; let tvOn = false;
     Object.entries(data.home || {}).forEach(([room, value]) => (value.devices || []).forEach((device) => {
       if (device.type === "light") lights[room] = device.state === "on";
@@ -382,6 +384,7 @@ setInterval(checkPending, 1500);
 // Each suggestion names who says it, so "Book Amma a ride" is said by Son, not by whoever was selected last.
 document.querySelectorAll(".suggest").forEach((button) => button.addEventListener("click", () => {
   speaker.value = button.dataset.speaker;
+  speaker.dataset.chosen = "1";
   enqueueAsk(button.dataset.say, button.dataset.speaker);
 }));
 
@@ -498,6 +501,8 @@ function renderQuestion(question, requestId) {
 }
 
 // One card per ride, order or invitation waiting for a decision. Each card sends only its own proposal id.
+// The person's choice in the Speaking as list stays put until they change it.
+speaker.addEventListener("change", () => { speaker.dataset.chosen = "1"; });
 const approvalCards = new Map();
 function approvalText(approval) {
   const other = (approval.alternatives || ["other room"])[0].replace("_", " ");

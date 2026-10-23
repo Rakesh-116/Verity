@@ -138,8 +138,7 @@ def tools_for_request(text: str, mcp_tools: list[dict[str, Any]]) -> list[dict[s
 
 def _limit_reply(trace: list[dict[str, Any]]) -> str:
     """Said when the model used all its rounds. It states what was already done, so nothing is hidden."""
-    done = " ".join(event["say"] for event in trace if event.get("kind") == "tool" and event.get("ok") and event.get("say"))
-    return "I reached the tool-call limit before finishing." + (f" So far: {done}" if done else "")
+    return "I reached the tool-call limit before finishing. Check the cards on screen for what is waiting for you."
 
 
 def answered_by(settings: AISettings) -> str:
@@ -161,7 +160,7 @@ RIDER_RETURN_AFTER_S = 180
 MODEL_BLOCKED_TOOLS = {
     "approve_ride_booking", "book_ride", "approve_order", "place_order", "approve_ride_hedge",
     "start_ride_hedge", "approve_energy_saving_proposal", "execute_energy_saving_proposal",
-    "decline_ride_booking", "decline_order", "cancel_ride_hedge",
+    "decline_ride_booking", "decline_order", "cancel_ride_hedge", "set_active_speaker",
 }
 BLOCKED_RESULT = {"is_error": False, "output": {"success": False, "reason": "needs_person_approval"}}
 REPEATED_RESULT = {"is_error": False, "output": {"success": True, "note": "already_done_this_reply"}}
