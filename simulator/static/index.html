@@ -34,10 +34,10 @@
           <div class="device-row device-tv debug-only" data-room="tv_room"></div>
           <div id="robot-status" class="robot-status debug-only">HOUSEBOT: LOADING</div>
           <div id="proactive-status" class="proactive-status debug-only">CHECKING HOME…</div>
-          <div class="echo" tabindex="0" aria-label="Simulated voice device for Verity. Not a real speaker.">
+          <div class="echo" tabindex="0" aria-label="Simulated voice device for Verity.">
             <span class="echo-ring" aria-hidden="true"></span>
             <span class="echo-core" aria-hidden="true"></span>
-            <span class="echo-label" role="tooltip">Simulated voice device. Not a real speaker.</span>
+            <span class="echo-label" role="tooltip">Simulated voice device.</span>
           </div>
         </div>
       </section>
@@ -49,19 +49,19 @@
         <label class="sr-only" for="speaker">Speaking as</label>
         <select id="speaker" aria-label="Speaking as">
           <option value="son">Son</option>
-          <option value="amma">Amma</option>
-          <option value="papa">Papa</option>
+          <option value="amma">Mother</option>
+          <option value="papa">Father</option>
         </select>
         <label class="sr-only" for="prompt">Instruction</label>
-        <input id="prompt" autocomplete="off" placeholder="Try: “Book Amma a ride to the market”" />
+        <input id="prompt" autocomplete="off" placeholder="Try: “Book Mother a ride to the market”" />
         <button id="mic" type="button" title="Voice input (browser speech recognition)">🎙</button>
         <button id="send" type="submit">Send</button>
         <button id="tick" class="debug-only" type="button" title="Developer only: send a simulated time-of-day event">Simulate Mon 10:15 at PG</button>
       </form>
       <div id="suggestions" class="suggestions" aria-label="Things you can ask">
-        <button type="button" class="suggest" data-say="Book Amma a ride to the market" data-speaker="son">Book Amma a ride to the market</button>
-        <button type="button" class="suggest" data-say="Papa wants to watch TV" data-speaker="papa">Papa wants to watch TV</button>
-        <button type="button" class="suggest" data-say="Help Amma with a massage" data-speaker="son">Help Amma with a massage</button>
+        <button type="button" class="suggest" data-say="Book Mother a ride to the market" data-speaker="son">Book Mother a ride to the market</button>
+        <button type="button" class="suggest" data-say="Father wants to watch TV" data-speaker="papa">Father wants to watch TV</button>
+        <button type="button" class="suggest" data-say="Help Mother with a massage" data-speaker="son">Help Mother with a massage</button>
         <button type="button" class="suggest" data-say="order milk and bread" data-speaker="amma">Order milk and bread</button>
       </div>
       <p class="notice">Voice is optional. Simulated Alexa+ uses a generic browser voice, never an Alexa voice imitation.</p>

@@ -22,8 +22,8 @@ PREFERENCE = re.compile(r"^(the )?(cheapest|cheaper|fastest|faster)( one| ride| 
 CONFIRM = re.compile(r"^(yes|yes,? please|confirm|confirm it|go ahead|book it|ok|okay)[.!]?$", re.IGNORECASE)
 HELP = (
     "Without an AI key I can run these simulated commands: "
-    "“Book Amma a ride to the market”, then “yes” to confirm; "
-    "“Papa wants to watch TV”; and “Help Amma” for a simulated massage. "
+    "“Book Mother a ride to the market”, then “yes” to confirm; "
+    "“Father wants to watch TV”; and “Help Mother” for a simulated massage. "
     "Add an AI key for free-form requests."
 )
 
@@ -168,6 +168,6 @@ async def run_scripted(
         massage = await call("start_robot_massage", {"target_person_id": target})
         if not massage.get("success"):
             return f"Housebot could not help {_name(roster, target)}: {massage.get('reason', 'unknown reason')}."
-        return f"Housebot is assisting {_name(roster, target)}. This is simulated, not medical."
+        return f"Housebot is assisting {_name(roster, target)}. This is simulated, non medical."
 
     return HELP

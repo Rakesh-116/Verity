@@ -35,7 +35,7 @@ PLACE_NAMES = {"pg": "PG", "office": "Office"}
 
 
 def _who(person_id: Any) -> str:
-    return {"son": "Son", "amma": "Amma", "papa": "Papa"}.get(str(person_id), str(person_id or "them").title())
+    return {"son": "Son", "amma": "Mother", "papa": "Father"}.get(str(person_id), str(person_id or "them").title())
 
 
 def _place(name: Any) -> str:
