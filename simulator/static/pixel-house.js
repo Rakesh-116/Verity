@@ -110,6 +110,8 @@
         }
         actor.status = state.status; actor.color = roster[id].color; actor.label = roster[id].label;
         actor.bubble = this.scene[id]?.bubble || null;
+        // Someone who has gone out through the door is not drawn once they have arrived outside.
+        actor.gone = this.scene[id]?.spot === "street";
         if (actor.room !== state.room || actor.targetCol !== target.col || actor.targetRow !== target.row) {
           actor.room = state.room;
           actor.targetCol = target.col;
@@ -142,7 +144,7 @@
     draw() {
       const c = this.ctx; c.clearRect(0, 0, this.canvas.width, this.canvas.height); c.fillStyle = "#131c29"; c.fillRect(0, 0, this.canvas.width, this.canvas.height);
       this.drawPorch(c); this.drawHallways(c); ROOMS.forEach((room) => this.drawRoom(c, room)); this.drawDoors(c); this.drawFurniture(c); this.drawLights(c); this.drawTv(c);
-      [...this.people.values()].filter((person) => person.room !== "away").sort((a, b) => a.y - b.y).forEach((person) => this.drawPerson(c, person));
+      [...this.people.values()].filter((person) => person.room !== "away" && (!person.gone || person.path.length > 0)).sort((a, b) => a.y - b.y).forEach((person) => this.drawPerson(c, person));
       this.drawBubbles(c);
     }
 
@@ -277,7 +279,7 @@
 
     drawBubbles(c) {
       for (const person of this.people.values()) {
-        if (!person.bubble || person.room === "away") continue;
+        if (!person.bubble || person.room === "away" || (person.gone && person.path.length === 0)) continue;
         // The robot's note sits higher so it never covers the person it is helping.
         const x = Math.round(person.x * TILE + TILE / 2), y = Math.round(person.y * TILE + TILE / 2) - (person.id === "housebot" ? 66 : 40);
         c.font = "bold 8px monospace";

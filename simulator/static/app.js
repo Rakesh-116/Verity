@@ -92,7 +92,8 @@ async function refreshState() {
       const timeInput = document.querySelector("#sim-time");
       if (document.activeElement !== timeInput) timeInput.value = data.clock.sim_time;
     }
-    renderHousehold(data.household?.members || []);
+    const departed = Object.keys(data.scene || {}).filter((id) => data.scene[id].stage === "departed");
+    renderHousehold(data.household?.members || [], new Set([...presenceAway, ...departed]));
     renderDevices(data.home, data.robot, data.proactive); speaker.value = data.active_speaker.person_id;
     const lights = {}; let tvOn = false;
     Object.entries(data.home || {}).forEach(([room, value]) => (value.devices || []).forEach((device) => {
@@ -209,13 +210,14 @@ if (!SpeechRecognition) mic.disabled = true;
 else { const recognition = new SpeechRecognition(); recognition.lang = "en-IN"; recognition.interimResults = true; recognition.onresult = (event) => { const text = Array.from(event.results).map((result) => result[0].transcript).join(""); prompt.value = text; if (event.results[event.results.length - 1].isFinal) { enqueueAsk(text); prompt.value = ""; } }; mic.addEventListener("click", () => recognition.start()); }
 
 // Who is home: one chip per member. Away members cannot be chosen as the speaker.
-function renderHousehold(members) {
+function renderHousehold(members, outside = new Set()) {
   householdMembers = members;
   const chips = document.querySelector("#household");
   chips.replaceChildren(...members.map((m) => {
-    const chip = el("button", `chip ${m.presence}`, `${m.display_name}`);
+    const isOutside = outside.has(m.person_id);
+    const chip = el("button", `chip ${isOutside ? "away" : "home"}`, `${m.display_name}`);
     chip.type = "button";
-    chip.title = m.presence === "away" ? `Away until ${m.return_at}` : "Home";
+    chip.title = isOutside ? (m.presence === "away" ? `Away until ${m.return_at}` : "Out of the house") : "Home";
     chip.addEventListener("click", () => { renderHouseholdList(); showOverlay("household-modal"); });
     return chip;
   }));
