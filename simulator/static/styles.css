@@ -184,11 +184,6 @@ body { padding: 14px; }
 
 
 /* Accept and Reject under Verity's message, for a ride that needs approval */
-.reply-actions { display: flex; align-items: center; gap: 10px; margin: 6px 4px 0; }
-.reply-actions[hidden] { display: none; }
-.reply-actions-note { font-size: 13px; color: #9fb6d2; }
-.reply-actions button { font: inherit; font-size: 15px; padding: 7px 16px; border-radius: 8px; border: 1px solid #5b7fa8; background: #13233a; color: #e7f0fb; cursor: pointer; }
-.reply-actions button.primary { border-color: #6be5b0; background: #0d2a26; color: #d7fff0; }
 
 .household-text .pref { font-size: 12px; color: #9fb6d2; }
 

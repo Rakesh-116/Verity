@@ -270,7 +270,7 @@ document.querySelector("#ride-open").addEventListener("click", () => showOverlay
 document.querySelector("#close-household").addEventListener("click", () => hideOverlay("household-modal"));
 
 // A ride waiting for a yes shows as a popup on top of the house, with Confirm and Not now.
-let confirmShownFor = null;
+let confirmShownFor = null, approvalShownFor = null;
 // The booking popup counts the driver's wait down, second by second, and then says the driver has arrived.
 let bookingCountdown = null;
 function bookingLine(booking, remaining) {
@@ -295,13 +295,25 @@ async function checkPending() {
     const data = await response.json();
     const pending = data.pending;
     const booking = data.booking;
-    // A ride waiting for approval shows Accept and Reject under Verity's message.
-    document.querySelector("#reply-actions").hidden = !pending;
+    // A ride waiting for approval opens in the popup with Accept and Reject. It stays open until the person answers.
+    const approvalKey = pending ? `approval:${pending.provider}:${pending.destination}:${pending.price_inr}` : null;
+    if (pending && approvalKey !== approvalShownFor) {
+      document.querySelector("#confirm-title").textContent = "Approve this ride?";
+      document.querySelector("#confirm-text").textContent = `${pending.provider_name || pending.provider} ride for ${pending.name} to ${pending.destination}, ₹${pending.price_inr}.`;
+      document.querySelector("#confirm-no").textContent = "Reject";
+      document.querySelector("#confirm-yes").textContent = "Accept";
+      document.querySelector("#confirm-actions").hidden = false;
+      document.querySelector("#confirm-done").hidden = true;
+      showOverlay("confirm-overlay");
+    }
+    approvalShownFor = approvalKey;
     // A booked ride shows its details in the popup, once per booking.
     const bookedKey = booking ? `booked:${booking.reference}` : null;
     if (booking && bookedKey !== confirmShownFor) {
       document.querySelector("#confirm-title").textContent = "Ride booked (simulated)";
       startBookingCountdown(booking);
+      document.querySelector("#confirm-no").textContent = "Not now";
+      document.querySelector("#confirm-yes").textContent = "Confirm";
       document.querySelector("#confirm-actions").hidden = true;
       document.querySelector("#confirm-done").hidden = false;
       showOverlay("confirm-overlay");
@@ -309,8 +321,6 @@ async function checkPending() {
     confirmShownFor = bookedKey;
   } catch (error) { /* the next check will try again */ }
 }
-document.querySelector("#accept-ride").addEventListener("click", () => enqueueAsk("yes", speaker.value));
-document.querySelector("#reject-ride").addEventListener("click", () => enqueueAsk("no", speaker.value));
 document.querySelector("#confirm-yes").addEventListener("click", () => { hideOverlay("confirm-overlay"); enqueueAsk("yes", speaker.value); });
 document.querySelector("#confirm-no").addEventListener("click", () => { hideOverlay("confirm-overlay"); enqueueAsk("no", speaker.value); });
 document.querySelector("#confirm-done").addEventListener("click", () => hideOverlay("confirm-overlay"));

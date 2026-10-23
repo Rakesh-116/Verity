@@ -109,6 +109,8 @@ def _tool_events(result: dict[str, Any]) -> list[dict[str, Any]]:
 
 # Bounded execution: a model turn stops after this many seconds, whatever else is happening.
 RUN_TIME_LIMIT_S = 60
+# Each round is one model call plus its tool calls. A ride needs about five rounds (preferences, compare, prepare, reply).
+MAX_TOOL_ROUNDS = 10
 
 
 class AgentHost:
@@ -453,7 +455,7 @@ class AgentHost:
         trace.append({"kind": "user", "text": text})
 
         started_at = time.time()
-        for _ in range(6):
+        for _ in range(MAX_TOOL_ROUNDS):
             if time.time() - started_at > RUN_TIME_LIMIT_S:
                 break
             response = client.chat.completions.create(
@@ -532,7 +534,7 @@ class AgentHost:
         trace.append({"kind": "user", "text": text})
 
         started_at = time.time()
-        for _ in range(6):
+        for _ in range(MAX_TOOL_ROUNDS):
             if time.time() - started_at > RUN_TIME_LIMIT_S:
                 break
             response = client.converse(
