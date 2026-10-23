@@ -37,7 +37,24 @@ NO_TOOL_NOTE = (
 )
 
 
-def household_context(text: str, speaker: str | None, waiting: bool = False) -> str:
+GOING_OUT = re.compile(r"\b(going out|going outside|heading out|leaving the house|i'?m leaving|i am leaving|step out)\b", re.I)
+COMING_BACK = re.compile(r"\b(i'?m back|i am back|i'?m home|i am home|got back)\b", re.I)
+
+
+def _activity_lines(scene: dict[str, Any]) -> list[str]:
+    """What is happening in the house right now, so the model does not have to guess: a massage in progress, and anyone out on a ride."""
+    names = {pid: member["display_name"] for pid, member in household_roster().items()}
+    lines = []
+    for person, task in scene.items():
+        if task.get("kind") == "massage" and str(task.get("spot", "")).startswith("beside:"):
+            target = task["spot"].split(":", 1)[1]
+            lines.append(f"Housebot is giving {names.get(target, target)} a massage (person_id {target}). end_household_task with person_id {target} stops it.")
+        elif task.get("kind") == "ride" and task.get("stage") == "departed":
+            lines.append(f"{names.get(person, person)} (person_id {person}) has left on a ride and is out of the house.")
+    return lines
+
+
+def household_context(text: str, speaker: str | None, waiting: bool = False, extra: list[str] | None = None) -> str:
     """Per-turn context the model cannot recall by itself: IDs, the speaker, resolved names, and a ride awaiting a yes."""
     lines = [f"{pid}={member['display_name']} ({member['role']})" for pid, member in household_roster().items()]
     parts = [f"[Household IDs: {', '.join(lines)}.]"]
@@ -45,6 +62,8 @@ def household_context(text: str, speaker: str | None, waiting: bool = False) -> 
         parts.append(f"[Speaker person_id: {speaker}.]")
     if waiting:
         parts.append("[A ride is waiting for the person's confirmation on screen. Do not ask for approval in text; the app handles the yes or no.]")
+    for line in extra or []:
+        parts.append(f"[{line}]")
     for mention in resolve_mentions(text):
         parts.append(
             f"['{mention['spoken']}' in the request means person_id {mention['person_id']}. "
@@ -315,6 +334,33 @@ class AgentHost:
         speech = await run_scripted(text, speaker, pending, roster, call)
         return {"speech": speech, "trace": trace, "mode": "scripted"}
 
+    async def _sync_departures(self) -> None:
+        """Someone who has left on a ride is out of the house in the server's state too, so the model never reports them at home."""
+        self._scene = advance_scene(self._scene, time.time())
+        household = await self._gateway.call_tool("get_household", {})
+        home = {m["person_id"] for m in (household["output"] or {}).get("members", []) if m.get("presence") == "home"}
+        for person, task in self._scene.items():
+            if task.get("stage") == "departed" and person in home:
+                await self._gateway.call_tool("set_member_presence", {"person_id": person, "presence": "away"})
+
+    async def _presence_from_speech(self, text: str, speaker: str | None, trace: list[dict[str, Any]]) -> str | None:
+        """Someone who says they are leaving or back changes their own presence in the server. The model is told what changed."""
+        if not speaker:
+            return None
+        if GOING_OUT.search(text):
+            presence, say = "away", "is out of the house"
+        elif COMING_BACK.search(text):
+            presence, say = "home", "is back home"
+        else:
+            return None
+        name = household_roster().get(speaker, {}).get("display_name", speaker)
+        output = await self.set_presence(speaker, presence, None)
+        if presence == "home" and output.get("success"):
+            self._scene.pop(speaker, None)
+        ok = output.get("success") is True
+        trace.append({"kind": "tool", "name": "set_member_presence", "arguments": {"person_id": speaker, "presence": presence}, "result": {"is_error": False, "output": output}, "say": f"{name} {say}." if ok else "Could not change presence.", "ok": ok})
+        return f"{name} has just been marked as {presence}: {say}." if ok else None
+
     async def set_presence(self, person_id: str, presence: str, return_at: str | None) -> dict[str, Any]:
         """Mark someone home or away through MCP, so the house and the guard agree."""
         arguments: dict[str, Any] = {"person_id": person_id, "presence": presence}
@@ -360,6 +406,8 @@ class AgentHost:
             trace.append({"kind": "authorization", "reason": auth["reason"]})
             return {"speech": auth["speech"], "trace": trace}
 
+        await self._sync_departures()
+        presence_note = await self._presence_from_speech(text, active_speaker_id, trace)
         pending = self._pending.get(session_id or "local", {})
         waiting = "proposal_id" in pending
         # A plain yes or no answers the ride on screen. The app handles it, the same way with or without a model.
@@ -369,7 +417,7 @@ class AgentHost:
 
         history_key = self._history_key(session_id, active_speaker_id)
         history = list(self._session_history.get(history_key, []))
-        model_text = household_context(text, active_speaker_id, waiting)
+        model_text = household_context(text, active_speaker_id, waiting, _activity_lines(self._scene) + ([presence_note] if presence_note else []))
         progress_key = session_id or "local"
         progress = {"busy": True, "current": "Thinking about what you asked…", "steps": []}
         self._progress[progress_key] = progress

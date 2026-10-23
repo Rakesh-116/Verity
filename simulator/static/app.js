@@ -184,6 +184,8 @@ function splitQuestion(text) {
   if (!last.endsWith("?")) return { statement: text, question: null };
   return { statement: sentences.slice(0, -1).join(" ").trim(), question: last };
 }
+// Only a question that asks permission to act gets Yes and No. Any other question is answered by typing.
+const CONFIRMATION_QUESTION = /^(shall i|should i|do you want (me )?to|would you like (me )?to|want me to|may i|can i|is that (ok|right|correct)|okay to|ok to)\b/i;
 
 async function ask(rawText, personId = speaker.value) {
   const text = rawText.replace(/^alexa[, ]*/i, "").trim(); if (!text) return;
@@ -194,7 +196,8 @@ async function ask(rawText, personId = speaker.value) {
     const failed = result.trace.some((event) => event.kind === "tool" && event.result.output && event.result.output.success === false);
     const spokenResponse = plainSpeech(result.speech);
     const { statement, question } = splitQuestion(spokenResponse);
-    renderQuestion(result.question || (question ? { text: question, options: ["Yes", "No"] } : null));
+    const options = CONFIRMATION_QUESTION.test(question || "") ? ["Yes", "No"] : [];
+    renderQuestion(result.question || (question ? { text: question, options } : null));
     const replyText = result.question || !question ? spokenResponse : statement;
     characters[personId].status = failed ? "alert" : "idle"; renderCharacters(); addMessage("assistant", "Verity", spokenResponse); document.querySelector("#reply").textContent = replyText; trace.textContent = JSON.stringify(result.trace, null, 2); renderSteps(result.trace); traceStatus.textContent = `${result.trace.length} event${result.trace.length === 1 ? "" : "s"}`; speak(spokenResponse); await refreshState();
   } catch (error) { characters[personId].status = "alert"; renderCharacters(); addMessage("assistant", "Verity", "The simulated host could not complete that request."); trace.textContent = String(error); traceStatus.textContent = "Error"; status.textContent = "Error"; }
