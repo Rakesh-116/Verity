@@ -38,6 +38,7 @@ NO_TOOL_NOTE = (
 )
 
 
+CHOICE_QUESTION = re.compile(r"(?:^|[\s—:,])(?P<a>[A-Za-z][\w-]*(?: [\w-]+)?) or (?P<b>[A-Za-z][\w-]*(?: [\w-]+)?)\?$")
 BOOKING_QUESTION = re.compile(r"\b(shall i|should i|do you want me to|would you like me to|want me to)\b.*\bbook", re.I)
 ACTION_WORDS = re.compile(r"\b(help|massage|watch|ride|order|send|book|join)\b", re.IGNORECASE)
 GOING_OUT = re.compile(r"\b(going out|going outside|heading out|leaving the house|i'?m leaving|i am leaving|step out)\b", re.I)
@@ -274,6 +275,12 @@ class AgentHost:
                 question_text = f"Which ride do you want: {details}?"
                 result["question"] = {"key": "platform", "text": question_text, "options": list(names.values()), "person_id": compared.get("person_id")}
                 result["speech"] = " ".join(sentences[:-1] + [question_text]).strip()
+        # "Which provider ... dashmart or quickmart?" is a choice: each option is a button, so the person can click it.
+        choice = CHOICE_QUESTION.search(last) if last.endswith("?") else None
+        if choice and not result.get("question") and re.match(r"^\s*(which|what)\b", last, re.IGNORECASE):
+            options = [PROVIDER_NAMES.get(choice.group(k).lower(), choice.group(k).strip().title()) for k in ("a", "b")]
+            result["question"] = {"key": "choice", "text": last, "options": options, "person_id": None}
+            result["speech"] = " ".join(sentences[:-1]).strip() or last
         # "Shall I book CityCab?" is not a booking until a proposal exists. Create the proposal now, so the approval
         # popup carries the decision. Nothing is booked: the person still accepts or declines.
         if compared and last.endswith("?") and BOOKING_QUESTION.search(last):
