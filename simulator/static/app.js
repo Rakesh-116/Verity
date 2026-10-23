@@ -154,10 +154,10 @@ function updateComposerState() {
   send.textContent = queuedTurns.length ? `Queued (${queuedTurns.length})` : "Working…";
 }
 
-function enqueueAsk(rawText, personId = speaker.value) {
+function enqueueAsk(rawText, personId = speaker.value, requestId = null) {
   const text = rawText.replace(/^alexa[, ]*/i, "").trim();
   if (!text) return;
-  queuedTurns.push({ text, personId });
+  queuedTurns.push({ text, personId, requestId });
   updateComposerState();
   if (!isProcessingTurn) void processNextTurn();
 }
@@ -173,7 +173,7 @@ async function processNextTurn() {
   isProcessingTurn = true;
   updateComposerState();
   try {
-    await ask(next.text, next.personId);
+    await ask(next.text, next.personId, next.requestId || undefined);
   } finally {
     await processNextTurn();
   }
@@ -189,9 +189,8 @@ function splitQuestion(text) {
 // Only a question that asks permission to act gets Yes and No. Any other question is answered by typing.
 const CONFIRMATION_QUESTION = /^(shall i|should i|do you want (me )?to|would you like (me )?to|want me to|may i|can i|is that (ok|right|correct)|okay to|ok to)\b/i;
 
-async function ask(rawText, personId = speaker.value) {
+async function ask(rawText, personId = speaker.value, requestId = crypto.randomUUID()) {
   const text = rawText.replace(/^alexa[, ]*/i, "").trim(); if (!text) return;
-  const requestId = crypto.randomUUID();
   addMessage("user", PEOPLE[personId].label, text, personId);
   startProgress(requestId, `${PEOPLE[personId].label}: ${requestLabel(text)}`);
   characters[personId].status = "busy"; renderCharacters(); status.textContent = "Agent is choosing tools…";
@@ -427,7 +426,8 @@ function renderQuestion(question, requestId) {
   question.options.forEach((option, index) => {
     const button = el("button", index === 0 ? "primary" : "secondary", option === "cheapest" ? "Cheapest" : option === "fastest" ? "Fastest" : option);
     button.type = "button";
-    button.addEventListener("click", () => { setBlock(card, ".question-block", false); enqueueAsk(option, speaker.value); });
+    // An answer to a question goes back to the popup that asked it, so it does not open a popup of its own.
+    button.addEventListener("click", () => { setBlock(card, ".question-block", false); enqueueAsk(option, speaker.value, requestId || null); });
     choices.append(button);
   });
   setBlock(card, ".question-block", true);
