@@ -156,11 +156,15 @@ async def run_scripted(
 
     if MASSAGE.search(stripped):
         # Housebot is the helper, never the person helped. Prefer someone other than the speaker.
-        people = [m for m in resolve_mentions(stripped) if m["person_id"] != "housebot"]
-        mentions = [m for m in people if m["person_id"] != speaker] or people
-        if not mentions:
-            return "Who should Housebot help?"
-        target = mentions[0]["person_id"]
+        if speaker and re.search(r"\b(me|myself|my)\b", stripped, re.IGNORECASE):
+            # "me" is the person who is speaking.
+            target = speaker
+        else:
+            people = [m for m in resolve_mentions(stripped) if m["person_id"] != "housebot"]
+            mentions = [m for m in people if m["person_id"] != speaker] or people
+            if not mentions:
+                return "Who should Housebot help?"
+            target = mentions[0]["person_id"]
         massage = await call("start_robot_massage", {"target_person_id": target})
         if not massage.get("success"):
             return f"Housebot could not help {_name(roster, target)}: {massage.get('reason', 'unknown reason')}."

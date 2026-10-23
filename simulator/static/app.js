@@ -11,7 +11,7 @@ const ROOMS = {
   bedroom: { x: 13, y: 66 }, tv_room: { x: 66, y: 66 }, away: { x: 48, y: 48 }
 };
 const CONNECTIONS = { living_room: ["kitchen", "bedroom"], kitchen: ["living_room", "tv_room"], bedroom: ["living_room", "tv_room"], tv_room: ["kitchen", "bedroom"] };
-const PEOPLE = { son: { label: "Son", color: "#7bdff2" }, amma: { label: "Amma", color: "#ffb86c" }, papa: { label: "Papa", color: "#b8f2a0" }, housebot: { label: "Housebot", color: "#9de5ff" } };
+const PEOPLE = { son: { label: "Son", color: "#7bdff2" }, amma: { label: "Mother", color: "#ffb86c" }, papa: { label: "Father", color: "#b8f2a0" }, housebot: { label: "Housebot", color: "#9de5ff" } };
 const characters = Object.fromEntries(Object.keys(PEOPLE).map((id) => [id, { room: "away", status: "away" }]));
 const demoScript = [
   { time: "07:00", person: "son", text: "Remember that my response style is brief." },
@@ -213,7 +213,7 @@ async function ask(rawText, personId = speaker.value, requestId = crypto.randomU
     const options = CONFIRMATION_QUESTION.test(question || "") ? ["Yes", "No"] : [];
     renderQuestion(result.question || (question ? { text: question, options } : null), requestId);
     const replyText = result.question || !question ? spokenResponse : statement;
-    characters[personId].status = failed ? "alert" : "idle"; renderCharacters(); addMessage("assistant", "Verity", spokenResponse); document.querySelector("#reply").textContent = replyText; trace.textContent = JSON.stringify(result.trace, null, 2); renderSteps(result.trace); traceStatus.textContent = `${result.trace.length} event${result.trace.length === 1 ? "" : "s"}`; speak(spokenResponse); await refreshState();
+    characters[personId].status = failed ? "alert" : "idle"; renderCharacters(); addMessage("assistant", `Verity → ${PEOPLE[personId].label}`, spokenResponse, personId); document.querySelector("#reply").textContent = replyText; trace.textContent = JSON.stringify(result.trace, null, 2); renderSteps(result.trace); traceStatus.textContent = `${result.trace.length} event${result.trace.length === 1 ? "" : "s"}`; speak(spokenResponse); await refreshState();
   } catch (error) { characters[personId].status = "alert"; renderCharacters(); addMessage("assistant", "Verity", "The simulated host could not complete that request."); trace.textContent = String(error); traceStatus.textContent = "Error"; status.textContent = "Error"; }
   finally { stopProgress(requestId); prompt.focus(); }
 }
@@ -411,7 +411,18 @@ function openTaskCard(requestId, label = "") {
   makeMovable(card);
   document.body.append(card);
   taskCards.set(requestId, card);
+  pruneTaskCards(requestId);
   return card;
+}
+const MAX_TASK_CARDS = 3;
+function pruneTaskCards(keepId) {
+  // A popup that is still working, or waiting for the person, is never closed here. Only finished ones are.
+  for (const [requestId, card] of taskCards) {
+    if (taskCards.size <= MAX_TASK_CARDS) break;
+    if (requestId === keepId) continue;
+    const needsAnswer = !card.querySelector(".question-block").hidden || !card.querySelector(".approval-list").hidden || !card.querySelector(".booking-block").hidden;
+    if (!requestTimers.has(requestId) && !needsAnswer) closeTaskCard(requestId);
+  }
 }
 function closeTaskCard(requestId) {
   const card = taskCards.get(requestId);
@@ -537,6 +548,8 @@ async function pollProgress(requestId) {
 function stopProgress(requestId) {
   clearInterval(requestTimers.get(requestId));
   requestTimers.delete(requestId);
+  const finished = taskCards.get(requestId);
+  if (finished) finished.querySelector(".thinking-now").textContent = "Done.";
   // The popup stays open until the person closes it or has answered what it asks.
   if (!requestTimers.size) document.querySelector(".echo").classList.remove("thinking");
   document.querySelector("#agent-now").textContent = IDLE_AGENT_TEXT;

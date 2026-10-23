@@ -63,6 +63,8 @@ def household_context(text: str, speaker: str | None, waiting: bool = False, ext
     parts = [f"[Household IDs: {', '.join(lines)}.]"]
     if speaker:
         parts.append(f"[Speaker person_id: {speaker}.]")
+        if re.search(r"\b(me|my|myself|i)\b", text, re.IGNORECASE):
+            parts.append(f"['me', 'my', 'myself' and 'I' in the request mean the speaker, person_id {speaker}.]")
     if waiting:
         parts.append("[A ride is waiting for the person's confirmation on screen. Do not ask for approval in text; the app handles the yes or no.]")
     for line in extra or []:
@@ -378,7 +380,7 @@ class AgentHost:
             # Everyone at home is asked, including someone already in the TV room. Saying no sends them to their other room.
             if person in (speaker, "housebot") or member.get("presence") != "home":
                 continue
-            invite_id = f"invite.{request_id or 'x'}.{person}"
+            invite_id = f"invite.{speaker}.{person}"
             approvals[invite_id] = {
                 "proposal_id": invite_id,
                 "kind": "invite",
