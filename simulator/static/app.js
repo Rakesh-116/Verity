@@ -306,7 +306,10 @@ function renderHouseholdList() {
   list.replaceChildren(savedPlacesBlock(), ...householdMembers.map((m) => {
     const row = el("div", `household-row ${m.presence}`);
     const text = el("div", "household-text");
-    text.append(el("b", null, m.display_name), el("span", null, m.presence === "away" ? `Away · back at ${m.return_at || "unknown time"}` : "Home"));
+    // A countdown when the server has one; a clock time when that was given; otherwise say the time is not set.
+    const seconds = m.return_in_seconds;
+    const back = seconds ? `back in ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}` : m.return_at ? `back at ${m.return_at}` : "return time not set";
+    text.append(el("b", null, m.display_name), el("span", null, m.presence === "away" ? `Away · ${back}` : "Home"));
     // Saved preferences are visible: a value, or 'not set yet' so it is clear nothing has been guessed.
     text.append(el("span", "pref", `Ride: ${m.ride_priority || "not set yet"} · usual destination: ${m.usual_destination || "none"}`));
     row.append(text);
