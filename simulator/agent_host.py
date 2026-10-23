@@ -64,11 +64,19 @@ def household_context(text: str, speaker: str | None, waiting: bool = False, ext
         parts.append("[A ride is waiting for the person's confirmation on screen. Do not ask for approval in text; the app handles the yes or no.]")
     for line in extra or []:
         parts.append(f"[{line}]")
+    names = {pid: member["display_name"] for pid, member in household_roster().items()}
     for mention in resolve_mentions(text):
         parts.append(
             f"['{mention['spoken']}' in the request means person_id {mention['person_id']}. "
             "Use that exact ID in tool calls.]"
         )
+        if speaker and mention["person_id"] != speaker:
+            # The speaker is asking for someone else: their preferences, their ride, their record.
+            parts.append(
+                f"[The speaker, {names.get(speaker, speaker)}, is asking for {names.get(mention['person_id'], mention['person_id'])}. "
+                f"Load and use {names.get(mention['person_id'], mention['person_id'])}'s preferences (person_id {mention['person_id']}), "
+                f"not the speaker's, for this ride and any other tool that needs a person.]"
+            )
     return text + "\n" + " ".join(parts)
 
 
