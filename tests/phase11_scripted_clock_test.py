@@ -67,12 +67,12 @@ def test_booking_for_amma_waits_until_she_is_home_then_confirms_then_books() -> 
 
         await _set_time(host, "09:00")
         asked = await host.run_turn("Book Amma a ride to the market", "son", "s1")
-        assert asked["speech"].startswith("I'll arrange a simulated") and "Shall I confirm it?" in asked["speech"], asked["speech"]
+        assert asked["speech"].startswith("I'll arrange a ") and "Shall I confirm it?" in asked["speech"], asked["speech"]
         assert any(e["name"] == "create_ride_booking_proposal" and e["result"]["output"]["success"] for e in asked["trace"] if e["kind"] == "tool")
         assert host._scene.get("amma", {}).get("spot") == "front_door", host._scene
 
         booked = await host.run_turn("yes", "son", "s1")
-        assert booked["speech"].startswith("Booked. A simulated"), booked["speech"]
+        assert booked["speech"].startswith("Booked. A "), booked["speech"]
         assert any(e["name"] == "book_ride" and e["result"]["output"]["success"] for e in booked["trace"] if e["kind"] == "tool")
         popup = host.progress("s1")["booking"]
         assert popup["provider"] == "QuickRide" and popup["reference"].startswith("booking.quickride.amma."), popup
@@ -152,7 +152,7 @@ def test_an_unset_ride_preference_is_asked_once_then_saved() -> None:
         assert "cheapest one or the fastest one" in asked["speech"], asked["speech"]
         assert asked["question"]["options"] == ["cheapest", "fastest"] and asked["question"]["key"] == "ride_priority", asked.get("question")
         answered = await host.run_turn("fastest", "son", "s5")
-        assert answered["speech"].startswith("I'll arrange a simulated"), answered["speech"]
+        assert answered["speech"].startswith("I'll arrange a "), answered["speech"]
         saved = await host._gateway.call_tool("get_person_context", {"person_id": "son"})
         assert saved["output"]["preferences"]["ride_priority"] == "fastest", saved
 

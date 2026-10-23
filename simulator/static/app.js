@@ -239,7 +239,7 @@ async function ask(rawText, personId = speaker.value, requestId = crypto.randomU
     renderQuestion(result.question || (question ? { text: question, options } : null), requestId);
     const replyText = result.question || !question ? spokenResponse : statement;
     characters[personId].status = failed ? "alert" : "idle"; renderCharacters(); addMessage("assistant", `Verity → ${PEOPLE[personId].label}`, spokenResponse, personId); document.querySelector("#reply").textContent = replyText; trace.textContent = JSON.stringify(result.trace, null, 2); renderSteps(result.trace); traceStatus.textContent = `${result.trace.length} event${result.trace.length === 1 ? "" : "s"}${result.answered_by ? ` · answered by ${result.answered_by}` : ""}`; speak(spokenResponse); await refreshState();
-  } catch (error) { characters[personId].status = "alert"; renderCharacters(); addMessage("assistant", "Verity", "The simulated host could not complete that request."); trace.textContent = String(error); traceStatus.textContent = "Error"; status.textContent = "Error"; }
+  } catch (error) { characters[personId].status = "alert"; renderCharacters(); addMessage("assistant", "Verity", "The host could not complete that request."); trace.textContent = String(error); traceStatus.textContent = "Error"; status.textContent = "Error"; }
   finally { stopProgress(requestId); prompt.focus(); }
 }
 
@@ -338,7 +338,7 @@ let firstStatusCheck = true;
 // The booking popup counts the driver's wait down, second by second, and then says the driver has arrived.
 let bookingCountdown = null;
 function bookingLine(booking, remaining) {
-  const when = remaining > 0 ? `Driver arrives in ${remaining} second${remaining === 1 ? "" : "s"} (simulated).` : "Driver has arrived (simulated).";
+  const when = remaining > 0 ? `Driver arrives in ${remaining} second${remaining === 1 ? "" : "s"}.` : "Driver has arrived.";
   return `${booking.provider} ride for ${booking.name} to ${booking.destination}. ${when} ₹${booking.price_inr}.`;
 }
 function startBookingCountdown(booking) {
@@ -614,8 +614,8 @@ function el(tag, className, text) {
 function notificationCard(hedge) {
   const c = hedge.committed;
   const box = el("div", "notice-card");
-  box.append(el("b", null, "Your ride is set (simulated)"));
-  box.append(el("span", null, `${c.label}: driver ${c.driver}, arrives in about ${c.eta_minutes * 4} seconds (simulated), ₹${c.fare_inr}.`));
+  box.append(el("b", null, "Your ride is set"));
+  box.append(el("span", null, `${c.label}: driver ${c.driver}, arrives in about ${c.eta_minutes * 4} seconds, ₹${c.fare_inr}.`));
   const row = el("div", "notice-actions");
   const open = el("button", "secondary", "Open ride");
   open.type = "button";
@@ -632,7 +632,7 @@ async function cancelRide(hedge, button) {
     const response = await fetch("/api/rides/cancel", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ person_id: hedge.person_id, hedge_id: hedge.hedge_id }) });
     const result = await response.json();
     const message = result.success
-      ? `Cancelled. Fee for this cancel: ₹${result.fee_charged_inr ?? 0}; fees so far ₹${result.fees_inr ?? 0} (simulated).`
+      ? `Cancelled. Fee for this cancel: ₹${result.fee_charged_inr ?? 0}; fees so far ₹${result.fees_inr ?? 0}.`
       : `Not cancelled: ${result.reason || result.error || "unknown reason"}.`;
     document.querySelector("#agent-now").textContent = message;
   } catch (error) {
@@ -642,7 +642,7 @@ async function cancelRide(hedge, button) {
 
 function rideCard(hedge) {
   const card = el("article", "ride-card");
-  const head = el("header"); head.append(el("span", "ride-title", hedge.headline), el("span", "badge", "SIMULATED"));
+  const head = el("header"); head.append(el("span", "ride-title", hedge.headline));
   card.append(head);
   if (hedge.status === "failed") card.append(el("div", "banner failed", hedge.plain_status));
   else card.append(el("p", "ride-status", hedge.plain_status));
@@ -670,7 +670,7 @@ function rideCard(hedge) {
     const steps = el("ol"); hedge.explanation.forEach((line) => steps.append(el("li", null, line)));
     why.append(steps); card.append(why);
   }
-  card.append(el("div", "ride-foot", `Cancellation fees so far: ₹${hedge.fees_inr} (simulated)`));
+  card.append(el("div", "ride-foot", `Cancellation fees so far: ₹${hedge.fees_inr}`));
   return card;
 }
 function showOverlay(id) { document.getElementById(id).hidden = false; }

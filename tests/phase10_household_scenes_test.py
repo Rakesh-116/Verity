@@ -90,7 +90,7 @@ def test_massage_sends_housebot_to_the_members_room_and_labels_it() -> None:
     assert result["success"] and result["target_person_id"] == "amma", result
     robot = json.loads((STATE_DIRECTORY / "robot_state.json").read_text(encoding="utf-8"))
     assert robot["room"] == result["room"], (robot, result)
-    assert "simulated, non-medical" in robot["task"], robot
+    assert "non-medical" in robot["task"], robot
     scene = apply_tool_result({}, "start_robot_massage", {}, result)
     assert scene["housebot"]["spot"] == "beside:amma" and scene["housebot"]["stage"] == "assisting", scene
 

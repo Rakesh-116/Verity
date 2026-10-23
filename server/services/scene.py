@@ -39,7 +39,7 @@ def apply_tool_result(scene: dict[str, Any], name: str, arguments: dict[str, Any
         _set(updated, person, "watch", TV_SEAT, "Watching TV", "watching")
     elif name == "start_robot_massage" and output.get("target_person_id"):
         target = output["target_person_id"]
-        _set(updated, "housebot", "massage", f"beside:{target}", "Assisting (simulated, not medical)", "assisting")
+        _set(updated, "housebot", "massage", f"beside:{target}", "Assisting (non-medical)", "assisting")
     elif name == "place_order" and person:
         _set(updated, person, "order", FRONT_DOOR, "Waiting at the door for the delivery", "delivering")
     elif name == "end_household_task" and person:

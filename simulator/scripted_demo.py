@@ -21,9 +21,9 @@ CANCEL = re.compile(r"^(no|no thanks|cancel|cancel it|don'?t|do not|don'?t book 
 PREFERENCE = re.compile(r"^(the )?(cheapest|cheaper|fastest|faster)( one| ride| option)?[.!]?$", re.IGNORECASE)
 CONFIRM = re.compile(r"^(yes|yes,? please|confirm|confirm it|go ahead|book it|ok|okay)[.!]?$", re.IGNORECASE)
 HELP = (
-    "Without an AI key I can run these simulated commands: "
+    "Without an AI key I can run these commands: "
     "“Book Mother a ride to the market”, then “yes” to confirm; "
-    "“Father wants to watch TV”; and “Help Mother” for a simulated massage. "
+    "“Father wants to watch TV”; and “Help Mother” for a massage. "
     "Add an AI key for free-form requests."
 )
 
@@ -92,7 +92,7 @@ async def run_scripted(
         }
         pending.clear()
         pending["booking"] = booking
-        return f"Booked. A simulated {provider} ride for {who} to {where}. Driver arrives in about {booking['pickup_seconds']} seconds."
+        return f"Booked. A {provider} ride for {who} to {where}. Driver arrives in about {booking['pickup_seconds']} seconds."
 
     match = RIDE.search(stripped)
     if match:
@@ -126,7 +126,7 @@ async def run_scripted(
         pending.clear()
         provider = PROVIDER_NAMES.get(quote["provider"], quote["provider"])
         pending.update({"proposal_id": proposal["proposal_id"], "person_id": person_id, "name": who, "provider": quote["provider"], "provider_name": provider, "destination": where, "pickup_seconds": quote.get("pickup_seconds_demo"), "price_inr": quote["price_inr"]})
-        return f"I'll arrange a simulated {provider} ride for {who} to {where}. Shall I confirm it?"
+        return f"I'll arrange a {provider} ride for {who} to {where}. Shall I confirm it?"
 
     order = ORDER.match(stripped)
     if order:
@@ -168,6 +168,6 @@ async def run_scripted(
         massage = await call("start_robot_massage", {"target_person_id": target})
         if not massage.get("success"):
             return f"Housebot could not help {_name(roster, target)}: {massage.get('reason', 'unknown reason')}."
-        return f"Housebot is assisting {_name(roster, target)}. This is simulated, non medical."
+        return f"Housebot is assisting {_name(roster, target)}. This is non-medical."
 
     return HELP

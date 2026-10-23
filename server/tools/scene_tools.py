@@ -13,7 +13,7 @@ from tools.home_tools import move_person, set_device_state
 from tools.robot_tools import send_robot_to_room
 
 
-MASSAGE_TASK = "massage (simulated, non-medical)"
+MASSAGE_TASK = "massage (non-medical)"
 
 
 def _occupants(room: str) -> list[str]:

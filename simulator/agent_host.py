@@ -511,7 +511,7 @@ class AgentHost:
                 return {"success": False, "speech": f"The order was not placed: {placed.get('reason', 'unknown reason')}.", "trace": trace}
             self._drop_approval(key, proposal_id)
             items = ", ".join(item.get("items") or [])
-            return {"success": True, "speech": f"Ordered {items} from {item['provider_name']}. It is simulated, so nothing was really bought.", "trace": trace}
+            return {"success": True, "speech": f"Ordered {items} from {item['provider_name']}.", "trace": trace}
 
         approved = await call("approve_ride_booking", {"person_id": person, "proposal_id": proposal_id})
         if not approved.get("success"):
@@ -523,7 +523,7 @@ class AgentHost:
         booking = {"provider": item["provider_name"], "name": item["name"], "destination": item["destination"], "pickup_seconds": booked.get("pickup_seconds_demo"), "price_inr": item.get("price_inr"), "reference": booked.get("confirmed_booking_id"), "request_id": item.get("request_id")}
         self._pending.setdefault(key, {})["booking"] = booking
         self._scene = apply_tool_result(self._scene, "book_ride", {"person_id": person, "proposal_id": proposal_id}, booked)
-        speech = f"Booked. A simulated {item['provider_name']} ride for {item['name']} to {item['destination']}. Driver arrives in about {booking['pickup_seconds']} seconds."
+        speech = f"Booked. A {item['provider_name']} ride for {item['name']} to {item['destination']}. Driver arrives in about {booking['pickup_seconds']} seconds."
         return {"success": True, "speech": speech, "trace": trace}
 
     @staticmethod
