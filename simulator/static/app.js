@@ -133,13 +133,29 @@ function addMessage(kind, who, text, personId = null) {
 }
 // The reply is read in a female English voice when the browser has one. Otherwise the browser's English voice is used.
 const FEMALE_VOICE_NAMES = /female|samantha|zira|aria|jenny|hazel|susan|karen|moira|victoria|serena|fiona/i;
+const MALE_VOICE_NAMES = /\bmale\b|david|mark|george|daniel|james|guy|ryan|alex|fred|thomas/i;
+// The on/off switch for spoken replies. The choice is remembered between visits.
+let voiceOn = localStorage.getItem("verity-voice") !== "off";
+const voiceToggle = document.querySelector("#voice-toggle");
+function renderVoiceToggle() {
+  voiceToggle.textContent = voiceOn ? "Voice on" : "Voice off";
+  voiceToggle.setAttribute("aria-pressed", String(voiceOn));
+}
+voiceToggle.addEventListener("click", () => {
+  voiceOn = !voiceOn;
+  localStorage.setItem("verity-voice", voiceOn ? "on" : "off");
+  if (!voiceOn) window.speechSynthesis?.cancel();
+  renderVoiceToggle();
+});
+renderVoiceToggle();
 function femaleVoice() {
   const voices = window.speechSynthesis.getVoices();
   const english = voices.filter((voice) => /^en/i.test(voice.lang));
-  return english.find((voice) => FEMALE_VOICE_NAMES.test(voice.name)) || english[0] || null;
+  // A male voice is never picked by default. If the browser has no female English voice, its default voice is used.
+  return english.find((voice) => FEMALE_VOICE_NAMES.test(voice.name)) || english.find((voice) => !MALE_VOICE_NAMES.test(voice.name)) || null;
 }
 function speak(text) {
-  if (!window.speechSynthesis) return;
+  if (!voiceOn || !window.speechSynthesis) return;
   window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.voice = femaleVoice();
