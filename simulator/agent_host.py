@@ -128,6 +128,8 @@ def _tool_events(result: dict[str, Any]) -> list[dict[str, Any]]:
 
 # Bounded execution: a model turn stops after this many seconds, whatever else is happening.
 RUN_TIME_LIMIT_S = 60
+# A rider who has left on a ride comes back after this many real seconds (the page shows the countdown).
+RIDER_RETURN_AFTER_S = 180
 # Each round is one model call plus its tool calls. A ride needs about five rounds (preferences, compare, prepare, reply).
 MAX_TOOL_ROUNDS = 10
 
@@ -145,6 +147,8 @@ class AgentHost:
         self._progress: dict[str, dict[str, Any]] = {}
         # What each member is doing on screen, derived from confirmed tool results.
         self._scene: dict[str, Any] = {}
+        # Riders who have left on a ride, and when each comes back (epoch seconds).
+        self._returns: dict[str, float] = {}
         # A ride waiting for the person's "yes", per session (scripted demo only).
         self._pending: dict[str, dict[str, Any]] = {}
         # Set when the last model answer came from the fallback provider, so the page can say so.
@@ -235,6 +239,7 @@ class AgentHost:
 
     async def dashboard_state(self) -> dict[str, Any]:
         """Read render-only household state through the same MCP client."""
+        await self._tick_household()
         home = await self._gateway.call_tool("get_home_state", {})
         speaker = await self._gateway.call_tool("get_active_speaker", {})
         robot = await self._gateway.call_tool("get_robot_status", {})
@@ -253,6 +258,7 @@ class AgentHost:
             "scene": scene,
             "mode": await self.mode(),
             "clock": await self.clock(),
+            "returns": self.returns_in_seconds(),
             "scene_lines": scene_summary(scene, {p: m["display_name"] for p, m in household_roster().items()}),
         }
 
@@ -334,14 +340,26 @@ class AgentHost:
         speech = await run_scripted(text, speaker, pending, roster, call)
         return {"speech": speech, "trace": trace, "mode": "scripted"}
 
-    async def _sync_departures(self) -> None:
-        """Someone who has left on a ride is out of the house in the server's state too, so the model never reports them at home."""
-        self._scene = advance_scene(self._scene, time.time())
+    async def _tick_household(self) -> None:
+        """Keeps the house true as time passes. Someone who has left on a ride is out of the house in the server's
+        state, with a return time; when that time passes they come back home. The model never reports them in a room."""
+        now = time.time()
+        self._scene = advance_scene(self._scene, now)
         household = await self._gateway.call_tool("get_household", {})
-        home = {m["person_id"] for m in (household["output"] or {}).get("members", []) if m.get("presence") == "home"}
+        presence = {m["person_id"]: m.get("presence") for m in (household["output"] or {}).get("members", [])}
         for person, task in self._scene.items():
-            if task.get("stage") == "departed" and person in home:
+            if task.get("stage") == "departed" and presence.get(person) == "home":
                 await self._gateway.call_tool("set_member_presence", {"person_id": person, "presence": "away"})
+                self._returns[person] = now + RIDER_RETURN_AFTER_S
+        for person, due in list(self._returns.items()):
+            if now >= due:
+                await self._gateway.call_tool("set_member_presence", {"person_id": person, "presence": "home"})
+                self._returns.pop(person, None)
+                self._scene.pop(person, None)
+
+    def returns_in_seconds(self) -> dict[str, int]:
+        now = time.time()
+        return {person: max(0, round(due - now)) for person, due in self._returns.items()}
 
     async def _presence_from_speech(self, text: str, speaker: str | None, trace: list[dict[str, Any]]) -> str | None:
         """Someone who says they are leaving or back changes their own presence in the server. The model is told what changed."""
@@ -357,6 +375,7 @@ class AgentHost:
         output = await self.set_presence(speaker, presence, None)
         if presence == "home" and output.get("success"):
             self._scene.pop(speaker, None)
+            self._returns.pop(speaker, None)
         ok = output.get("success") is True
         trace.append({"kind": "tool", "name": "set_member_presence", "arguments": {"person_id": speaker, "presence": presence}, "result": {"is_error": False, "output": output}, "say": f"{name} {say}." if ok else "Could not change presence.", "ok": ok})
         return f"{name} has just been marked as {presence}: {say}." if ok else None
@@ -406,7 +425,7 @@ class AgentHost:
             trace.append({"kind": "authorization", "reason": auth["reason"]})
             return {"speech": auth["speech"], "trace": trace}
 
-        await self._sync_departures()
+        await self._tick_household()
         presence_note = await self._presence_from_speech(text, active_speaker_id, trace)
         pending = self._pending.get(session_id or "local", {})
         waiting = "proposal_id" in pending
