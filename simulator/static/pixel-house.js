@@ -230,6 +230,7 @@
         const seated = Object.keys(this.scene).filter((other) => this.scene[other].spot === "tv_seat").sort();
         return SEAT_SLOTS[Math.min(seated.indexOf(id), SEAT_SLOTS.length - 1)];
       }
+      if (task.spot === "street") return { col: 20, row: 23 };
       if (task.spot.startsWith("beside:")) {
         const other = this.people.get(task.spot.slice("beside:".length));
         if (!other) return null;

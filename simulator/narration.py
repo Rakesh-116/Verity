@@ -97,7 +97,9 @@ def _describe(name: str, args: dict[str, Any], out: dict[str, Any]) -> tuple[str
     if name == "compare_ride_options":
         if failed:
             return f"Could not compare rides: {_reason(out)}.", False
-        return f"Compared ride prices and driver times to {_place(out.get('destination'))}.", True
+        labels = {"quickride": "QuickRide", "citycab": "CityCab", "rideco": "RideCo"}
+        options = ", ".join(f"{labels.get(q['provider'], q['provider'])} ₹{q['price_inr']} ({q['eta_minutes']} min)" for q in out.get("quotes") or [])
+        return f"Compared rides to {_place(out.get('destination'))}: {options}.", True
     if name == "create_ride_booking_proposal":
         if failed:
             return f"Could not prepare the ride: {_reason(out)}.", False

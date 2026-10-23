@@ -264,13 +264,13 @@ async function checkPending() {
     const key = pending ? `ask:${JSON.stringify(pending)}` : booking ? `booked:${booking.reference}` : null;
     if (pending && key !== confirmShownFor) {
       document.querySelector("#confirm-title").textContent = "Confirm the simulated ride";
-      document.querySelector("#confirm-text").textContent = `${pending.provider_name || pending.provider} ride for ${pending.name} to ${pending.destination}. About ${pending.eta_min} min away, ₹${pending.price_inr}.`;
+      document.querySelector("#confirm-text").textContent = `${pending.provider_name || pending.provider} ride for ${pending.name} to ${pending.destination}. Driver arrives in about ${pending.pickup_seconds} seconds (simulated). ₹${pending.price_inr}.`;
       document.querySelector("#confirm-actions").hidden = false;
       document.querySelector("#confirm-done").hidden = true;
       showOverlay("confirm-overlay");
     } else if (booking && key !== confirmShownFor) {
       document.querySelector("#confirm-title").textContent = "Ride booked (simulated)";
-      document.querySelector("#confirm-text").textContent = `${booking.provider} ride for ${booking.name} to ${booking.destination}. About ${booking.eta_min} min away, ₹${booking.price_inr}. Reference ${booking.reference}.`;
+      document.querySelector("#confirm-text").textContent = `${booking.provider} ride for ${booking.name} to ${booking.destination}. Driver arrives in about ${booking.pickup_seconds} seconds (simulated). ₹${booking.price_inr}. Reference ${booking.reference}.`;
       document.querySelector("#confirm-actions").hidden = true;
       document.querySelector("#confirm-done").hidden = false;
       showOverlay("confirm-overlay");
@@ -389,7 +389,7 @@ function notificationCard(hedge) {
   const c = hedge.committed;
   const box = el("div", "notice-card");
   box.append(el("b", null, "Your ride is set (simulated)"));
-  box.append(el("span", null, `${c.label}: driver ${c.driver}, ${c.eta_minutes} min away, ₹${c.fare_inr}.`));
+  box.append(el("span", null, `${c.label}: driver ${c.driver}, arrives in about ${c.eta_minutes * 4} seconds (simulated), ₹${c.fare_inr}.`));
   const row = el("div", "notice-actions");
   const open = el("button", "secondary", "Open ride");
   open.type = "button";

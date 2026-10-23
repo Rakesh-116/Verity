@@ -17,7 +17,7 @@ os.environ["VERITY_STATE_DIR"] = str(STATE_DIRECTORY)
 sys.path.insert(0, str(PROJECT_DIRECTORY / "server"))
 
 from services.household import set_presence  # noqa: E402
-from services.scene import apply_tool_result, scene_summary  # noqa: E402
+from services.scene import advance_scene, apply_tool_result, scene_summary  # noqa: E402
 from tools.scene_tools import end_household_task, start_robot_massage, start_watch  # noqa: E402
 
 
@@ -107,6 +107,16 @@ def test_end_task_only_clears_the_screen() -> None:
     assert end_household_task("nobody")["reason"] == "person_not_found"
 
 
+def test_after_the_driver_arrives_the_person_leaves_through_the_door() -> None:
+    booked = apply_tool_result({}, "book_ride", {"person_id": "amma"}, {"success": True, "person_id": "amma", "provider": "quickride", "pickup_seconds_demo": 20}, now=1000.0)
+    assert booked["amma"]["ready_at"] == 1020.0, booked
+    still_waiting = advance_scene(booked, now=1019.0)
+    assert still_waiting["amma"]["stage"] == "waiting", still_waiting
+    departed = advance_scene(booked, now=1020.0)
+    assert departed["amma"]["stage"] == "departed" and departed["amma"]["spot"] == "street", departed
+    assert booked["amma"]["stage"] == "waiting", "advance_scene must not change its input"
+
+
 if __name__ == "__main__":
     test_ride_makes_the_person_wait_at_the_door_until_booked()
     test_failed_or_unknown_calls_never_move_anyone()
@@ -117,4 +127,5 @@ if __name__ == "__main__":
     test_massage_sends_housebot_to_the_members_room_and_labels_it()
     test_massage_refused_for_someone_away()
     test_end_task_only_clears_the_screen()
+    test_after_the_driver_arrives_the_person_leaves_through_the_door()
     print("Phase 10 household scenes verification passed.")

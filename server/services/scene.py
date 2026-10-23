@@ -5,6 +5,7 @@ renderer draws it. A tool result changes the scene only when it succeeded, so a
 refused booking never moves anyone.
 """
 
+import time
 from copy import deepcopy
 from typing import Any
 
@@ -17,7 +18,7 @@ def _set(scene: dict[str, Any], person: str, kind: str, spot: str, bubble: str, 
     scene[person] = {"kind": kind, "spot": spot, "bubble": bubble, "stage": stage}
 
 
-def apply_tool_result(scene: dict[str, Any], name: str, arguments: dict[str, Any], output: dict[str, Any]) -> dict[str, Any]:
+def apply_tool_result(scene: dict[str, Any], name: str, arguments: dict[str, Any], output: dict[str, Any], now: float | None = None) -> dict[str, Any]:
     """Return the scene after one tool call. Unknown or failed calls leave it unchanged."""
     updated = deepcopy(scene)
     if not isinstance(output, dict) or output.get("success") is False:
@@ -30,6 +31,8 @@ def apply_tool_result(scene: dict[str, Any], name: str, arguments: dict[str, Any
         _set(updated, person, "ride", FRONT_DOOR, "Waiting at the door. Finding a driver…", "searching")
     elif name == "book_ride" and person:
         _set(updated, person, "ride", FRONT_DOOR, "Ride booked. Waiting at the door.", "waiting")
+        pickup = output.get("pickup_seconds_demo", 20)
+        updated[person]["ready_at"] = (time.time() if now is None else now) + pickup
     elif name == "cancel_ride_hedge" and person:
         updated.pop(person, None)
     elif name == "start_watch" and person:
@@ -45,6 +48,15 @@ def apply_tool_result(scene: dict[str, Any], name: str, arguments: dict[str, Any
             updated.pop("housebot", None)
     elif name == "set_member_presence" and output.get("confirmed_presence") == "away" and person:
         updated.pop(person, None)
+    return updated
+
+
+def advance_scene(scene: dict[str, Any], now: float) -> dict[str, Any]:
+    """Once the driver has arrived, the person leaves through the door: the ride is under way."""
+    updated = deepcopy(scene)
+    for task in updated.values():
+        if task.get("stage") == "waiting" and task.get("ready_at") is not None and now >= task["ready_at"]:
+            task.update({"stage": "departed", "spot": "street", "bubble": "On the way. The ride is under way."})
     return updated
 
 

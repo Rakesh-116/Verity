@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
 import os
 import sys
 from pathlib import Path
@@ -19,7 +20,7 @@ from services.ai.settings import AISettings
 from simulator.mcp_gateway import MCPGateway, as_bedrock_tools, as_openai_tools, json_text
 from simulator.narration import describe_call, describe_doing
 from services.household import authorize, is_action_request, resolve_mentions, roster as household_roster
-from services.scene import apply_tool_result, scene_summary
+from services.scene import advance_scene, apply_tool_result, scene_summary
 from simulator.scripted_demo import PROVIDER_NAMES, is_confirmation, run_scripted
 
 
@@ -78,7 +79,7 @@ class AgentHost:
             "busy": state["busy"],
             "current": state["current"],
             "steps": list(state["steps"]),
-            "pending": waiting and {"person_id": waiting["person_id"], "name": waiting["name"], "provider": waiting["provider"], "provider_name": waiting.get("provider_name"), "destination": waiting["destination"], "eta_min": waiting.get("eta_min"), "price_inr": waiting.get("price_inr")},
+            "pending": waiting and {"person_id": waiting["person_id"], "name": waiting["name"], "provider": waiting["provider"], "provider_name": waiting.get("provider_name"), "destination": waiting["destination"], "pickup_seconds": waiting.get("pickup_seconds"), "price_inr": waiting.get("price_inr")},
             "booking": booking,
         }
 
@@ -109,6 +110,7 @@ class AgentHost:
         household = await self._gateway.call_tool("get_household", {})
         # Someone who is away (by the clock or by a change) has no activity on screen.
         away = {m["person_id"] for m in (household["output"] or {}).get("members", []) if m.get("presence") == "away"}
+        self._scene = advance_scene(self._scene, time.time())
         scene = {person: task for person, task in self._scene.items() if person not in away}
         return {
             "home": home["output"],

@@ -72,13 +72,13 @@ async def run_scripted(
             "provider": provider,
             "name": who,
             "destination": where,
-            "eta_min": booked.get("confirmed_eta_minutes", pending.get("eta_min")),
+            "pickup_seconds": booked.get("pickup_seconds_demo", pending.get("pickup_seconds")),
             "price_inr": pending.get("price_inr"),
             "reference": booked.get("confirmed_booking_id"),
         }
         pending.clear()
         pending["booking"] = booking
-        return f"Booked. A simulated {provider} ride for {who} to {where}, about {booking['eta_min']} minutes away."
+        return f"Booked. A simulated {provider} ride for {who} to {where}. Driver arrives in about {booking['pickup_seconds']} seconds."
 
     match = RIDE.search(stripped)
     if match:
@@ -107,7 +107,7 @@ async def run_scripted(
             return f"I could not prepare the ride: {proposal.get('reason', 'unknown reason')}."
         pending.clear()
         provider = PROVIDER_NAMES.get(quote["provider"], quote["provider"])
-        pending.update({"proposal_id": proposal["proposal_id"], "person_id": person_id, "name": who, "provider": quote["provider"], "provider_name": provider, "destination": where, "eta_min": quote["eta_minutes"], "price_inr": quote["price_inr"]})
+        pending.update({"proposal_id": proposal["proposal_id"], "person_id": person_id, "name": who, "provider": quote["provider"], "provider_name": provider, "destination": where, "pickup_seconds": quote.get("pickup_seconds_demo"), "price_inr": quote["price_inr"]})
         return f"I'll arrange a simulated {provider} ride for {who} to {where}. Shall I confirm it?"
 
     if WATCH.search(stripped):

@@ -50,6 +50,9 @@ home. Use the MCP tools to inspect live state before claiming facts or actions.
   person for an ID.
 - Presence is enforced in code before you are called. If someone is away, the
   request is refused for you. Do not argue with that refusal.
+- When you compare rides, name each platform with its price and driver time,
+  then say which one you recommend and why. For example: "QuickRide ₹95, 5 min;
+  CityCab ₹125, 4 min. I recommend CityCab for the faster pickup."
 - For "watch TV" or "a movie", call `start_watch` with the speaker's person ID.
   The TV and lights follow the house rule already in this skill.
 - For "massage" or "help Amma", call `start_robot_massage` with the target

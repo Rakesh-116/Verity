@@ -19,6 +19,9 @@ RIDE_PROVIDERS = {
 }
 
 
+DEMO_SECONDS_PER_SIMULATED_MINUTE = 4
+
+
 def _person_preferences(person_id: str) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
     person = load_json("memory.json")["people"].get(person_id)
     if person is None:
@@ -36,6 +39,8 @@ def compare_ride_options(person_id: str, destination: str | None = None, ride_ty
     if not resolved_destination:
         return {"person_id": person_id, "success": False, "reason": "needs_clarification", "field": "destination", "message": "Where should the ride go?"}
     quotes = rank_quotes([provider.quote(person_id, resolved_destination, resolved_ride_type) for provider in RIDE_PROVIDERS.values()])
+    # Demo timing: one simulated minute of driver wait is shown as 4 seconds, so pickups stay under 30 s.
+    quotes = [{**quote, "pickup_seconds_demo": quote["eta_minutes"] * DEMO_SECONDS_PER_SIMULATED_MINUTE} for quote in quotes]
     return {"person_id": person_id, "destination": resolved_destination, "ride_type": resolved_ride_type, "quotes": quotes, "recommended_ride_id": quotes[0]["ride_id"], "recommendation_reason": "lowest_price_then_fastest_eta"}
 
 
@@ -72,6 +77,6 @@ def book_ride(person_id: str, proposal_id: str) -> dict[str, Any]:
     if error is not None:
         return error
     quote = proposal["payload"]
-    result = {"person_id": person_id, "proposal_id": proposal_id, "provider": quote["provider"], "ride_id": quote["ride_id"], "success": True, "confirmed_booking_id": f"booking.{quote['provider']}.{person_id}.{proposal_id.rsplit('.', 1)[-1]}", "confirmed_eta_minutes": quote["eta_minutes"], **simulated_provenance(quote["provider"], "ride_booking")}
+    result = {"person_id": person_id, "proposal_id": proposal_id, "provider": quote["provider"], "ride_id": quote["ride_id"], "success": True, "confirmed_booking_id": f"booking.{quote['provider']}.{person_id}.{proposal_id.rsplit('.', 1)[-1]}", "confirmed_eta_minutes": quote["eta_minutes"], "pickup_seconds_demo": quote["eta_minutes"] * DEMO_SECONDS_PER_SIMULATED_MINUTE, **simulated_provenance(quote["provider"], "ride_booking")}
     append_action_log(person_id, "mobility", f"Created simulated {quote['provider']} ride booking.", result)
     return result
