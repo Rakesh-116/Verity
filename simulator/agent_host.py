@@ -19,6 +19,7 @@ from services.ai.settings import AISettings
 from simulator.mcp_gateway import MCPGateway, as_bedrock_tools, as_openai_tools, json_text
 from simulator.narration import describe_call, describe_doing
 from services.household import authorize, is_action_request, resolve_mentions, roster as household_roster
+from services.scene import apply_tool_result, scene_summary
 
 
 SKILL_PATH = PROJECT_DIRECTORY / "skills" / "verity" / "SKILL.md"
@@ -59,6 +60,8 @@ class AgentHost:
         self._session_history: dict[str, list[dict[str, str]]] = {}
         # Live, plain-English progress per browser session; the UI polls it while a turn runs.
         self._progress: dict[str, dict[str, Any]] = {}
+        # What each member is doing on screen, derived from confirmed tool results.
+        self._scene: dict[str, Any] = {}
 
     def progress(self, session_id: str | None) -> dict[str, Any]:
         """What Verity is doing right now for this session, in plain words."""
@@ -96,6 +99,8 @@ class AgentHost:
             "robot": robot["output"],
             "proactive": opportunities["output"],
             "household": household["output"],
+            "scene": self._scene,
+            "scene_lines": scene_summary(self._scene, {p: m["display_name"] for p, m in household_roster().items()}),
         }
 
     async def set_presence(self, person_id: str, presence: str, return_at: str | None) -> dict[str, Any]:
@@ -106,6 +111,9 @@ class AgentHost:
         result = await self._gateway.call_tool("set_member_presence", arguments)
         if result["is_error"]:
             return {"success": False, "reason": "tool_error"}
+        if result["output"].get("success") and presence == "away":
+            # Someone who has left is not shown doing anything in the house.
+            self._scene.pop(person_id, None)
         return result["output"]
 
     async def run_turn(
@@ -162,6 +170,9 @@ class AgentHost:
                         "speech": "I couldn't act on that, so nothing was booked or changed. Please try again.",
                         "trace": trace + [{"kind": "no_tool_call", "detail": "The model answered without calling a tool, twice."}],
                     }
+            for event in _tool_events(result):
+                if not event["result"].get("is_error"):
+                    self._scene = apply_tool_result(self._scene, event["name"], event.get("arguments", {}), event["result"].get("output"))
             self._remember_exchange(history_key, text, result["speech"])
             return result
         except ValueError as error:

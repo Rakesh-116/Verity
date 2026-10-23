@@ -83,6 +83,14 @@ async function refreshState() {
     presenceAway = new Set((data.household?.members || []).filter((m) => m.presence === "away").map((m) => m.person_id));
     renderHousehold(data.household?.members || []);
     renderDevices(data.home, data.robot, data.proactive); speaker.value = data.active_speaker.person_id;
+    const lights = {}; let tvOn = false;
+    Object.entries(data.home || {}).forEach(([room, value]) => (value.devices || []).forEach((device) => {
+      if (device.type === "light") lights[room] = device.state === "on";
+      if (device.type === "tv") tvOn = device.state === "on";
+    }));
+    window.pixelHouse.setScene(data.scene || {}, { tvOn, lights });
+    // When nothing is in progress, the status line says what each person is doing.
+    if (!isProcessingTurn && data.scene_lines?.length) document.querySelector("#agent-now").textContent = data.scene_lines.join(" · ");
     status.textContent = `Active speaker: ${data.active_speaker.display_name}`;
   } catch (error) { status.textContent = "MCP state unavailable"; }
 }
@@ -239,6 +247,7 @@ let progressTimer = null;
 const IDLE_AGENT_TEXT = "Ready. Ask for something, or try the time tick.";
 function startProgress() {
   document.querySelector("#agent-now").textContent = "Thinking about what you asked…";
+  document.querySelector(".echo").classList.add("thinking");
   clearInterval(progressTimer); progressTimer = setInterval(pollProgress, 500);
 }
 async function pollProgress() {
@@ -250,6 +259,7 @@ async function pollProgress() {
 }
 function stopProgress() {
   clearInterval(progressTimer); progressTimer = null;
+  document.querySelector(".echo").classList.remove("thinking");
   document.querySelector("#agent-now").textContent = IDLE_AGENT_TEXT;
 }
 

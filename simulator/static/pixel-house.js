@@ -4,7 +4,7 @@
  * tile positions, BFS movement, separated state sync, and a render loop.
  */
 (() => {
-  const TILE = 16, COLS = 32, ROWS = 22;
+  const TILE = 16, COLS = 32, ROWS = 24; // rows 22-23 are the porch outside the front door
   const TARGETS = {
     living_room: { col: 7, row: 7 }, kitchen: { col: 24, row: 7 },
     bedroom: { col: 7, row: 17 }, tv_room: { col: 24, row: 17 }, away: { col: -3, row: 11 },
@@ -28,7 +28,12 @@
     [{ col: 17, row: 5 }, { col: 18, row: 5 }],      // kitchen → vertical hall
     [{ col: 13, row: 17 }, { col: 14, row: 17 }],    // bedroom → vertical hall
     [{ col: 17, row: 17 }, { col: 18, row: 17 }],    // TV room → vertical hall
+    [{ col: 15, row: 21 }, { col: 16, row: 21 }],    // front door: hall → porch
   ];
+  // Waiting spots. Several people can wait at the door or sit at the TV at once.
+  const DOOR_SLOTS = [{ col: 15, row: 22 }, { col: 16, row: 22 }, { col: 14, row: 22 }, { col: 17, row: 22 }];
+  const SEAT_SLOTS = [{ col: 24, row: 19 }, { col: 26, row: 19 }];
+  const PORCH = { x0: 11, x1: 20, row0: 22, row1: 23 };
   const CHARACTER_SHEETS = {
     son: "/assets/pixel-agents/characters/char_0.png",
     amma: "/assets/pixel-agents/characters/char_1.png",
@@ -40,6 +45,7 @@
   for (const room of ROOMS) for (let row = room.y + 1; row < room.y + room.h - 1; row++) for (let col = room.x + 1; col < room.x + room.w - 1; col++) walkable.add(tileKey(col, row));
   for (let col = 1; col < COLS - 1; col++) walkable.add(tileKey(col, 11));
   for (let row = 1; row < ROWS - 1; row++) { walkable.add(tileKey(15, row)); walkable.add(tileKey(16, row)); }
+  for (let col = PORCH.x0; col <= PORCH.x1; col++) for (let row = PORCH.row0; row <= PORCH.row1; row++) walkable.add(tileKey(col, row));
   for (const doorway of DOOR_PATHS) for (const tile of doorway) walkable.add(tileKey(tile.col, tile.row));
 
   function findPath(start, end) {
@@ -67,6 +73,7 @@
     constructor(canvas) {
       this.canvas = canvas; this.ctx = canvas.getContext("2d"); this.ctx.imageSmoothingEnabled = false;
       this.people = new Map(); this.sheets = new Map(); this.lastFrame = performance.now();
+      this.scene = {}; this.tvOn = false; this.lights = {}; this.lastStates = null; this.lastRoster = null;
       Object.entries(CHARACTER_SHEETS).forEach(([id, source]) => {
         const image = new Image(); image.src = source; image.onload = () => this.sheets.set(id, image);
       });
@@ -74,6 +81,7 @@
     }
 
     sync(states, roster) {
+      this.lastStates = states; this.lastRoster = roster;
       const occupantsByRoom = new Map();
       for (const [id, state] of Object.entries(states)) {
         if (id === "housebot") continue;
@@ -90,15 +98,19 @@
         const slot = id === "housebot"
           ? { col: 4, row: 2 }
           : (ROOM_SLOT_OFFSETS[Math.max(occupants.indexOf(id), 0)] || ROOM_SLOT_OFFSETS[0]);
-        const target = state.room === "away"
+        let target = state.room === "away"
           ? base
           : { col: base.col + slot.col, row: base.row + slot.row };
+        // An activity (ride, TV, massage, delivery) overrides the room spot with its own place.
+        const spot = this.spotFor(id);
+        if (spot) target = spot;
         let actor = this.people.get(id);
         if (!actor) {
           actor = { id, col: target.col, row: target.row, x: target.col, y: target.row, path: [], room: state.room, targetCol: target.col, targetRow: target.row, status: state.status, color: roster[id].color, label: roster[id].label, frame: 0 };
           this.people.set(id, actor);
         }
         actor.status = state.status; actor.color = roster[id].color; actor.label = roster[id].label;
+        actor.bubble = this.scene[id]?.bubble || null;
         if (actor.room !== state.room || actor.targetCol !== target.col || actor.targetRow !== target.row) {
           actor.room = state.room;
           actor.targetCol = target.col;
@@ -130,8 +142,9 @@
 
     draw() {
       const c = this.ctx; c.clearRect(0, 0, this.canvas.width, this.canvas.height); c.fillStyle = "#131c29"; c.fillRect(0, 0, this.canvas.width, this.canvas.height);
-      this.drawHallways(c); ROOMS.forEach((room) => this.drawRoom(c, room)); this.drawDoors(c); this.drawFurniture(c);
+      this.drawPorch(c); this.drawHallways(c); ROOMS.forEach((room) => this.drawRoom(c, room)); this.drawDoors(c); this.drawFurniture(c); this.drawLights(c); this.drawTv(c);
       [...this.people.values()].filter((person) => person.room !== "away").sort((a, b) => a.y - b.y).forEach((person) => this.drawPerson(c, person));
+      this.drawBubbles(c);
     }
 
     drawHallways(c) {
@@ -197,6 +210,90 @@
       }
       c.fillStyle = person.status === "alert" ? "#e85e58" : person.status === "busy" ? "#65db83" : person.status === "walking" ? "#e9c46a" : "#9d7bd8"; c.fillRect(x + 8, y - 15, 5, 5);
       c.fillStyle = "#070b10"; c.font = "bold 7px monospace"; const width = c.measureText(person.label.toUpperCase()).width; c.fillText(person.label.toUpperCase(), x - width / 2 + 1, y + 25); c.fillStyle = "#f3f6f8"; c.fillText(person.label.toUpperCase(), x - width / 2, y + 24);
+    }
+
+    // Activities from the server: { person: { kind, spot, bubble, stage } }. Lights and TV from the house state.
+    setScene(scene, environment = {}) {
+      this.scene = scene || {};
+      this.tvOn = !!environment.tvOn;
+      this.lights = environment.lights || {};
+      if (this.lastStates) this.sync(this.lastStates, this.lastRoster);
+    }
+
+    spotFor(id) {
+      const task = this.scene[id];
+      if (!task) return null;
+      if (task.spot === "front_door") {
+        const waiting = Object.keys(this.scene).filter((other) => this.scene[other].spot === "front_door").sort();
+        return DOOR_SLOTS[Math.min(waiting.indexOf(id), DOOR_SLOTS.length - 1)];
+      }
+      if (task.spot === "tv_seat") {
+        const seated = Object.keys(this.scene).filter((other) => this.scene[other].spot === "tv_seat").sort();
+        return SEAT_SLOTS[Math.min(seated.indexOf(id), SEAT_SLOTS.length - 1)];
+      }
+      if (task.spot.startsWith("beside:")) {
+        const other = this.people.get(task.spot.slice("beside:".length));
+        if (!other) return null;
+        const col = Math.round(other.targetCol ?? other.col), row = Math.round(other.targetRow ?? other.row);
+        // Two tiles away, so a 2-tile-wide sprite does not stand on top of the person.
+        const options = [{ col: col + 2, row }, { col: col - 2, row }, { col: col + 2, row: row + 1 }, { col, row: row - 1 }];
+        return options.find((tile) => walkable.has(tileKey(tile.col, tile.row))) || null;
+      }
+      return null;
+    }
+
+    drawPorch(c) {
+      c.fillStyle = "#1c3a2a"; c.fillRect(0, (PORCH.row0) * TILE, COLS * TILE, (PORCH.row1 - PORCH.row0 + 1) * TILE);
+      c.fillStyle = "#3b4149"; c.fillRect(PORCH.x0 * TILE, PORCH.row0 * TILE, (PORCH.x1 - PORCH.x0 + 1) * TILE, (PORCH.row1 - PORCH.row0 + 1) * TILE);
+      c.fillStyle = "#e2e9f0"; c.font = "bold 8px monospace"; c.fillText("FRONT DOOR", 11 * TILE, 23 * TILE + 10);
+    }
+
+    drawLights(c) {
+      for (const room of ROOMS) {
+        if (this.lights[room.id] === false) {
+          c.fillStyle = "rgba(0, 0, 0, 0.42)";
+          c.fillRect(room.x * TILE, room.y * TILE, room.w * TILE, room.h * TILE);
+        }
+      }
+      if (this.tvOn) {
+        const tvRoom = ROOMS.find((room) => room.id === "tv_room");
+        c.fillStyle = "rgba(70, 120, 255, 0.10)";
+        c.fillRect(tvRoom.x * TILE, tvRoom.y * TILE, tvRoom.w * TILE, tvRoom.h * TILE);
+      }
+    }
+
+    // A blurred, moving colour screen when the TV is on; the off screen stays dark.
+    drawTv(c) {
+      if (!this.tvOn) return;
+      const x = 376, y = 245, w = 67, h = 35, t = performance.now() / 1000;
+      const gradient = c.createLinearGradient(x, y, x + w, y + h);
+      gradient.addColorStop(0, `hsl(${(200 + 40 * Math.sin(t * 0.6)).toFixed(0)}, 70%, 45%)`);
+      gradient.addColorStop(0.5, `hsl(${(260 + 30 * Math.sin(t * 0.4 + 1)).toFixed(0)}, 60%, 40%)`);
+      gradient.addColorStop(1, `hsl(${(170 + 25 * Math.sin(t * 0.5 + 2)).toFixed(0)}, 65%, 42%)`);
+      c.fillStyle = gradient; c.fillRect(x, y, w, h);
+      c.fillStyle = "rgba(255, 255, 255, 0.10)"; c.fillRect(x + ((t * 18) % (w + 20)) - 10, y, 6, h);
+      c.fillStyle = "rgba(120, 170, 255, 0.22)"; c.fillRect(x - 4, y - 4, w + 8, h + 8);
+    }
+
+    drawBubbles(c) {
+      for (const person of this.people.values()) {
+        if (!person.bubble || person.room === "away") continue;
+        // The robot's note sits higher so it never covers the person it is helping.
+        const x = Math.round(person.x * TILE + TILE / 2), y = Math.round(person.y * TILE + TILE / 2) - (person.id === "housebot" ? 66 : 40);
+        c.font = "bold 8px monospace";
+        const width = Math.min(c.measureText(person.bubble).width + 12, 230);
+        c.fillStyle = "#f4f7fb"; c.fillRect(x - width / 2, y - 11, width, 14);
+        c.fillStyle = "#15202e"; c.fillText(person.bubble.slice(0, 40), x - width / 2 + 6, y - 1);
+      }
+    }
+
+    // Test and debug hook: where every person stands and what they are doing.
+    positions() {
+      const out = {};
+      for (const [id, actor] of this.people) {
+        out[id] = { room: actor.room, col: Math.round(actor.x), row: Math.round(actor.y), target: { col: actor.targetCol, row: actor.targetRow }, moving: actor.path.length > 0, bubble: actor.bubble || null };
+      }
+      return out;
     }
 
     drawRobot(c, robot, x, y, bob) {

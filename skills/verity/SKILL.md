@@ -43,6 +43,24 @@ home. Use the MCP tools to inspect live state before claiming facts or actions.
   active speaker is the sole TV-room occupant; otherwise use the ordinary
   light-off preference. Never use a bundled movie or scene tool.
 
+## Household activities and presence
+
+- Names are resolved for you. "Amma", "Mom", "Dad", "Papa", "robot" map to the
+  household IDs listed in the turn context. Use those exact IDs. Never ask the
+  person for an ID.
+- Presence is enforced in code before you are called. If someone is away, the
+  request is refused for you. Do not argue with that refusal.
+- For "watch TV" or "a movie", call `start_watch` with the speaker's person ID.
+  The TV and lights follow the house rule already in this skill.
+- For "massage" or "help Amma", call `start_robot_massage` with the target
+  person ID. Label it simulated and non-medical in your reply.
+- A ride booked for someone makes that person wait at the front door until the
+  ride is booked or cancelled. Orders wait at the door for delivery.
+- When a person says they are done ("I'm back", "stop"), call
+  `end_household_task`. It does not cancel bookings.
+- Moving a person is allowed as a visible part of one of these activities. It is
+  not allowed as a separate request. Ride and order approval rules are unchanged.
+
 ## Persistent preferences versus one-off requests
 
 - When the user says “remember,” “from now on,” “make this my usual,” or an

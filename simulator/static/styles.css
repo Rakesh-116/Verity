@@ -95,7 +95,7 @@ body { padding: 14px; }
 .house-stage { position: relative; }
 .house-shell { position: relative; display: block !important; max-width: 920px; margin: 0 auto; }
 #pixel-house { width: 100%; height: auto; display: block; image-rendering: pixelated; }
-.echo { position: absolute; left: 14px; top: 14px; display: flex; align-items: center; gap: 8px; font-size: 12px; color: #bff5ec; background: rgba(8, 20, 24, .75); border: 1px solid #2f6f66; border-radius: 999px; padding: 4px 10px; }
+.echo { position: absolute; left: 6%; top: 34%; display: flex; align-items: center; gap: 8px; font-size: 12px; color: #bff5ec; background: rgba(8, 20, 24, .75); border: 1px solid #2f6f66; border-radius: 999px; padding: 4px 10px; }
 .echo-ring { width: 12px; height: 12px; border-radius: 50%; background: #49e0c6; animation: echo-pulse 2.4s ease-out infinite; }
 @keyframes echo-pulse { 0% { box-shadow: 0 0 0 0 rgba(73, 224, 198, .6); } 70% { box-shadow: 0 0 0 10px rgba(73, 224, 198, 0); } 100% { box-shadow: 0 0 0 0 rgba(73, 224, 198, 0); } }
 .now-strip { font-size: 15px; padding: 10px 14px; border: 1px solid #2c4a6e; border-radius: 10px; background: #0f1b2c; color: #e7f0fb; }
@@ -117,3 +117,7 @@ body { padding: 14px; }
 .household-row.away { opacity: .8; }
 .household-text { display: flex; flex-direction: column; gap: 2px; }
 .household-actions button { font: inherit; padding: 6px 12px; border-radius: 8px; border: 1px solid #5b7fa8; background: #13233a; color: #e7f0fb; cursor: pointer; }
+
+/* Echo: a faster pulse while Verity is thinking about a request. */
+.echo.thinking .echo-ring { animation-duration: .8s; background: #ffd166; }
+.echo.thinking { border-color: #c9a227; color: #ffefb8; }
