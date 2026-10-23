@@ -34,6 +34,10 @@ REASON_TEXT = {
 PLACE_NAMES = {"pg": "PG", "office": "Office"}
 
 
+def _who(person_id: Any) -> str:
+    return {"son": "Son", "amma": "Amma", "papa": "Papa"}.get(str(person_id), str(person_id or "them").title())
+
+
 def _place(name: Any) -> str:
     text = str(name or "")
     return PLACE_NAMES.get(text.lower(), text.replace("_", " ")) or "the destination"
@@ -66,8 +70,8 @@ def _describe(name: str, args: dict[str, Any], out: dict[str, Any]) -> tuple[str
         return f"Set {args.get('device_id')} to {out.get('confirmed_state')}.", True
     if name == "move_person":
         if failed:
-            return f"Could not move {args.get('person_id')}: {_reason(out)}.", False
-        return f"Moved {args.get('person_id')} to {out.get('confirmed_room')}.", True
+            return f"Could not move {_who(args.get('person_id'))}: {_reason(out)}.", False
+        return f"Moved {_who(args.get('person_id'))} to the {str(out.get('confirmed_room') or args.get('room', 'room')).replace('_', ' ')}.", True
     if name == "get_person_context":
         return f"Loaded {out.get('display_name') or args.get('person_id')}'s saved preferences.", not failed
     if name == "set_active_speaker":
@@ -159,6 +163,18 @@ def _describe(name: str, args: dict[str, Any], out: dict[str, Any]) -> tuple[str
         return "Placed the order.", not failed
     if name == "get_assessment_status":
         return f"Checked assessments for {args.get('course', 'that course')} (demo data).", not failed
+    if name == "start_watch":
+        if failed:
+            return f"Could not start the TV for {_who(args.get('person_id'))}: {_reason(out)}.", False
+        return f"Turned on the TV in the TV room for {_who(args.get('person_id'))}, with the light set for a movie.", True
+    if name == "start_robot_massage":
+        if failed:
+            return f"Housebot could not start a massage: {_reason(out)}.", False
+        return f"Housebot started a massage for {_who(args.get('target_person_id'))} in the {str(out.get('room', 'room')).replace('_', ' ')}.", True
+    if name == "end_household_task":
+        return f"Stopped {_who(args.get('person_id'))}'s activity.", not failed
+    if name == "get_household":
+        return "Checked who is home.", not failed
     if name == "compare_travel_options":
         return "Compared travel options (demo data).", not failed
     return f"Used {name.replace('_', ' ')}.", not failed

@@ -436,7 +436,7 @@ function renderQuestion(question, requestId) {
 // One card per ride, order or invitation waiting for a decision. Each card sends only its own proposal id.
 const approvalCards = new Map();
 function approvalText(approval) {
-  if (approval.kind === "invite") return `${approval.speaker_name} is watching TV. Join ${approval.speaker_name} in the TV room?`;
+  if (approval.kind === "invite") return `${approval.speaker_name} is watching TV. Join them in the TV room?`;
   if (approval.kind === "order") return `Order for ${approval.name} from ${approval.provider_name}: ${(approval.items || []).join(", ")}.`;
   const preference = approval.ride_priority ? `${approval.name}'s saved preference: ${approval.ride_priority}. ` : "";
   const trip = approval.distance_km ? `, ${approval.distance_km} km from the house` : "";
