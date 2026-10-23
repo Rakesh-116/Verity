@@ -161,8 +161,10 @@ RIDER_RETURN_AFTER_S = 180
 MODEL_BLOCKED_TOOLS = {
     "approve_ride_booking", "book_ride", "approve_order", "place_order", "approve_ride_hedge",
     "start_ride_hedge", "approve_energy_saving_proposal", "execute_energy_saving_proposal",
+    "decline_ride_booking", "decline_order", "cancel_ride_hedge",
 }
 BLOCKED_RESULT = {"is_error": False, "output": {"success": False, "reason": "needs_person_approval"}}
+REPEATED_RESULT = {"is_error": False, "output": {"success": True, "note": "already_done_this_reply"}}
 # When someone starts watching TV, the others at home are asked to join. If they decline, they go to one of these rooms.
 WATCH_ROOMS = {"son": ["bedroom", "living_room"], "amma": ["kitchen", "living_room"]}
 
@@ -603,7 +605,8 @@ class AgentHost:
             if person == speaker or self._household_cache.get(person, {}).get("presence") != "away":
                 continue
             seconds = self._household_cache[person].get("return_in_seconds")
-            when = f", back in about {max(1, round(seconds / 60))} minutes" if seconds else ""
+            back_at = self._household_cache[person].get("return_at")
+            when = f", back in about {max(1, round(seconds / 60))} minutes" if seconds else (f", back at {back_at}" if back_at and back_at != "unknown time" else "")
             return f"{mention['spoken']} is out of the house right now{when}. I can't do that until {mention['spoken']} is back."
         return None
 
@@ -789,6 +792,7 @@ class AgentHost:
         trace.append({"kind": "user", "text": text})
 
         started_at = time.time()
+        seen_calls: set[tuple[str, str]] = set()
         for _ in range(MAX_TOOL_ROUNDS):
             if time.time() - started_at > RUN_TIME_LIMIT_S:
                 break
@@ -807,7 +811,14 @@ class AgentHost:
             for call in tool_calls:
                 arguments = json.loads(call.function.arguments or "{}")
                 progress["current"] = describe_doing(call.function.name, arguments)
-                result = BLOCKED_RESULT if call.function.name in MODEL_BLOCKED_TOOLS else asyncio.run(self._gateway.call_tool(call.function.name, arguments))
+                key = (call.function.name, json.dumps(arguments, sort_keys=True))
+                if key in seen_calls:
+                    result = REPEATED_RESULT
+                elif call.function.name in MODEL_BLOCKED_TOOLS:
+                    result = BLOCKED_RESULT
+                else:
+                    seen_calls.add(key)
+                    result = asyncio.run(self._gateway.call_tool(call.function.name, arguments))
                 narrated = describe_call(call.function.name, arguments, result)
                 self._add_step(progress, narrated["text"], narrated["ok"])
                 trace.append(

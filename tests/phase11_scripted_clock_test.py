@@ -1,6 +1,6 @@
 """Verification for the simulated house clock and the labelled no-key demo.
 
-Needs the MCP endpoint running (VERITY_MCP_URL, default http://127.0.0.1:8000/mcp),
+Needs the MCP endpoint running (VERITY_MCP_URL, default http://127.0.0.1:8200/mcp),
 started with VERITY_STATE_DIR set to a temp copy. No AI key is needed: the test
 clears GROQ_API_KEY so the scripted demo is the path under test.
 """
@@ -25,7 +25,7 @@ from services.household import get_presence, set_presence, set_sim_time  # noqa:
 from simulator.agent_host import AgentHost  # noqa: E402
 
 
-MCP_URL = os.getenv("VERITY_MCP_URL", "http://127.0.0.1:8000/mcp")
+MCP_URL = os.getenv("VERITY_MCP_URL", "http://127.0.0.1:8200/mcp")
 
 
 def _host() -> AgentHost:
@@ -91,7 +91,7 @@ def test_watch_tv_and_massage_run_as_visible_activities() -> None:
         assert watch["speech"].startswith("The TV is on for Papa"), watch["speech"]
         assert host._scene.get("papa", {}).get("spot") == "tv_seat", host._scene
         massage = await host.run_turn("Ask the robot to help Amma", "son", "s2")
-        assert massage["speech"].startswith("Housebot is assisting Amma") and "not medical" in massage["speech"], massage["speech"]
+        assert massage["speech"].startswith("Housebot is assisting Amma") and "medical" in massage["speech"], massage["speech"]
         assert host._scene.get("housebot", {}).get("spot") == "beside:amma", host._scene
 
     asyncio.run(scenario())

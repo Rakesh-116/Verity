@@ -2,7 +2,7 @@
 
 Part 1 runs in-process against a temp copy of the seeded state.
 Part 2 runs the real AgentHost turn with a scripted model. It needs the MCP
-endpoint running, at VERITY_MCP_URL (default http://127.0.0.1:8000/mcp), started
+endpoint running, at VERITY_MCP_URL (default http://127.0.0.1:8200/mcp), started
 with VERITY_STATE_DIR set to a temp copy. No AI key is needed.
 """
 
@@ -17,6 +17,7 @@ from isolated_state import make_isolated_state
 
 PROJECT_DIRECTORY = Path(__file__).resolve().parents[1]
 os.environ["GROQ_API_KEY"] = "scripted-test-key"  # a model turn is under test here
+os.environ["AI_PROVIDER"] = "groq"  # the mocked model is Groq-shaped; never the provider in .env
 STATE_DIRECTORY = make_isolated_state()
 os.environ["VERITY_STATE_DIR"] = str(STATE_DIRECTORY)
 sys.path.insert(0, str(PROJECT_DIRECTORY / "server"))
@@ -117,7 +118,7 @@ def _run(text: str, speaker: str | None, replies: list[_Message]) -> tuple[dict,
 
     scripted = _Scripted(replies)
     AgentHost._client_for = staticmethod(lambda settings: (scripted, "scripted-model"))
-    host = AgentHost(os.getenv("VERITY_MCP_URL", "http://127.0.0.1:8000/mcp"))
+    host = AgentHost(os.getenv("VERITY_MCP_URL", "http://127.0.0.1:8200/mcp"))
 
     async def go() -> dict:
         # The house state lives in the MCP server, so Amma is set home there. Amma is away in the seed.

@@ -19,7 +19,7 @@ def get_household() -> dict[str, Any]:
             "role": member["role"],
             "aliases": member.get("aliases", []),
             "presence": presence.get("presence"),
-            "return_at": presence.get("return_at"),
+            "return_at": presence.get("return_at") or ("unknown time" if presence.get("presence") == "away" else None),
             "return_in_seconds": presence.get("return_in_seconds"),
             "ride_priority": saved.get("ride_priority") or None,
             "usual_destination": saved.get("usual_destination"),

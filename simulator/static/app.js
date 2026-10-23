@@ -309,6 +309,7 @@ document.querySelector("#close-household").addEventListener("click", () => hideO
 
 // A ride waiting for a yes shows as a popup on top of the house, with Confirm and Not now.
 let confirmShownFor = null;
+let firstStatusCheck = true;
 // The booking popup counts the driver's wait down, second by second, and then says the driver has arrived.
 let bookingCountdown = null;
 function bookingLine(booking, remaining) {
@@ -337,6 +338,11 @@ async function checkPending() {
     // A booked ride shows its details in the popup of the request that booked it, once. Only the person closes it.
     const booking = data.booking;
     const bookedKey = booking ? `booked:${booking.reference}` : null;
+    if (firstStatusCheck) {
+      // Bookings made before this page was opened are not new: they are remembered, not shown again.
+      firstStatusCheck = false;
+      confirmShownFor = bookedKey;
+    }
     if (booking && bookedKey !== confirmShownFor) {
       const card = taskCards.get(booking.request_id || "general") || openTaskCard(booking.request_id || "general");
       startBookingCountdown(booking);
@@ -446,6 +452,11 @@ function setBlock(card, selector, visible) {
 // A question from Verity is asked inside the popup of the request that raised it, with its answers as buttons.
 // Typing an answer in the box also works.
 function renderQuestion(question, requestId) {
+  if (!question) {
+    const existing = taskCards.get(requestId || "general");
+    if (existing) setBlock(existing, ".question-block", false);
+    return;
+  }
   const card = openTaskCard(requestId || "general");
   const choices = card.querySelector(".question-choices");
   choices.replaceChildren();
