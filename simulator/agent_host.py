@@ -37,6 +37,7 @@ NO_TOOL_NOTE = (
 )
 
 
+BOOKING_QUESTION = re.compile(r"\b(shall i|should i|do you want me to|would you like me to|want me to)\b.*\bbook", re.I)
 GOING_OUT = re.compile(r"\b(going out|going outside|heading out|leaving the house|i'?m leaving|i am leaving|step out)\b", re.I)
 COMING_BACK = re.compile(r"\b(i'?m back|i am back|i'?m home|i am home|got back)\b", re.I)
 
@@ -224,6 +225,20 @@ class AgentHost:
                 question_text = f"Which ride do you want: {details}?"
                 result["question"] = {"key": "platform", "text": question_text, "options": list(names.values()), "person_id": compared.get("person_id")}
                 result["speech"] = " ".join(sentences[:-1] + [question_text]).strip()
+        # "Shall I book CityCab?" is not a booking until a proposal exists. Create the proposal now, so the approval
+        # popup carries the decision. Nothing is booked: the person still accepts or declines.
+        if compared and last.endswith("?") and BOOKING_QUESTION.search(last) and "proposal_id" not in self._pending.get(session_id or "local", {}):
+            quotes = [q for q in compared.get("quotes", []) if q.get("provider")]
+            chosen = next((q for q in quotes if PROVIDER_NAMES.get(q["provider"], q["provider"]).lower() in last.lower()), None)
+            chosen = chosen or next((q for q in quotes if q["ride_id"] == compared.get("recommended_ride_id")), None)
+            if chosen:
+                arguments = {"person_id": compared.get("person_id"), "provider": chosen["provider"], "ride_id": chosen["ride_id"], "destination": compared.get("destination")}
+                prepared = await self._gateway.call_tool("create_ride_booking_proposal", arguments)
+                ok = not prepared["is_error"] and prepared["output"].get("success") is True
+                trace.append({"kind": "tool", "name": "create_ride_booking_proposal", "arguments": arguments, "result": prepared, "say": "Prepared the ride for approval." if ok else "Could not prepare the ride.", "ok": ok})
+                if ok:
+                    name = PROVIDER_NAMES.get(chosen["provider"], chosen["provider"])
+                    result["speech"] = " ".join(sentences[:-1] + [f"I've prepared the {name} ride for your approval. Accept or decline it in the popup."]).strip()
         checked = check_claims(result.get("speech", ""), trace)
         if checked["overridden"]:
             result["speech"] = checked["speech"]
