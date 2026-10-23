@@ -19,6 +19,7 @@ from tools.context_tools import (
     set_active_speaker,
 )
 from tools.mobility_tools import (
+    list_saved_places,
     decline_ride_booking,
     approve_ride_booking,
     book_ride,
@@ -58,6 +59,7 @@ from tools.college_tools import get_assessment_status
 
 mcp = FastMCP("Verity")
 for tool in (
+    list_saved_places,
     get_home_state,
     get_occupancy,
     list_devices,

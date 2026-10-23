@@ -118,7 +118,13 @@ def _run(text: str, speaker: str | None, replies: list[_Message]) -> tuple[dict,
     scripted = _Scripted(replies)
     AgentHost._client_for = staticmethod(lambda settings: (scripted, "scripted-model"))
     host = AgentHost(os.getenv("VERITY_MCP_URL", "http://127.0.0.1:8000/mcp"))
-    return asyncio.run(host.run_turn(text, speaker, "phase9-session")), scripted
+
+    async def go() -> dict:
+        # The house state lives in the MCP server, so Amma is set home there. Amma is away in the seed.
+        await host._gateway.call_tool("set_member_presence", {"person_id": "amma", "presence": "home"})
+        return await host.run_turn(text, speaker, "phase9-session")
+
+    return asyncio.run(go()), scripted
 
 
 def test_action_without_a_tool_call_twice_fails_explicitly() -> None:

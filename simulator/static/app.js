@@ -2,6 +2,7 @@
 document.body.classList.toggle("debug", new URLSearchParams(location.search).get("debug") === "1");
 let presenceAway = new Set();
 let householdMembers = [];
+let savedPlaces = [];
 let ridesLoaded = false;
 const seenHedges = new Set();
 
@@ -81,6 +82,7 @@ async function refreshState() {
   try {
     const response = await fetch("/api/state"), data = await response.json(); if (!response.ok) throw new Error(data.error);
     presenceAway = new Set((data.household?.members || []).filter((m) => m.presence === "away").map((m) => m.person_id));
+    savedPlaces = data.saved_places || [];
     // Seconds until each rider is back, turned into a deadline so the countdown can tick smoothly on this page.
     returnsDue = Object.fromEntries(Object.entries(data.returns || {}).map(([person, seconds]) => [person, Date.now() + seconds * 1000]));
     // The pill is only for the labelled scripted demo. Which model answers is a developer detail.
@@ -257,9 +259,16 @@ function updateReturnTimers() {
 }
 setInterval(updateReturnTimers, 250);
 
+// The places this household travels to, with the simulated road distance from the house.
+function savedPlacesBlock() {
+  const block = el("div", "saved-places");
+  block.append(el("b", null, "Saved places"));
+  savedPlaces.forEach((place) => block.append(el("span", null, `${place.label}: ${place.km} km from the house`)));
+  return block;
+}
 function renderHouseholdList() {
   const list = document.querySelector("#household-list");
-  list.replaceChildren(...householdMembers.map((m) => {
+  list.replaceChildren(savedPlacesBlock(), ...householdMembers.map((m) => {
     const row = el("div", `household-row ${m.presence}`);
     const text = el("div", "household-text");
     text.append(el("b", null, m.display_name), el("span", null, m.presence === "away" ? `Away · back at ${m.return_at || "unknown time"}` : "Home"));

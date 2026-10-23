@@ -102,7 +102,7 @@ def _describe(name: str, args: dict[str, Any], out: dict[str, Any]) -> tuple[str
         if failed:
             return f"Could not compare rides: {_reason(out)}.", False
         labels = {"quickride": "QuickRide", "citycab": "CityCab", "rideco": "RideCo"}
-        options = ", ".join(f"{labels.get(q['provider'], q['provider'])} ₹{q['price_inr']} ({q['eta_minutes']} min)" for q in out.get("quotes") or [])
+        options = ", ".join(f"{labels.get(q['provider'], q['provider'])} ₹{q['price_inr']} ({q['eta_minutes']} min, driver {q.get('pickup_km', '?')} km away)" for q in out.get("quotes") or [])
         distance = f", {out['distance_km']} km from the house" if out.get("distance_km") else ""
         return f"Compared rides to {_place(out.get('destination'))}{distance}: {options}. {out.get('recommendation_reason', '')}".strip(), True
     if name == "create_ride_booking_proposal":

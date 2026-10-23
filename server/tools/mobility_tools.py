@@ -6,6 +6,7 @@ from typing import Any
 from providers.ride_simulated import SimulatedRideProvider
 from services.approval_store import approve_proposal, consume_approved_proposal, create_proposal, decline_proposal
 from services.comparison_engine import rank_quotes
+from services import places
 from services.ride_value import choose_ride
 from services.provenance import simulated_provenance
 from state import people_db
@@ -25,8 +26,6 @@ RIDE_PROVIDERS = {
 DEMO_SECONDS_PER_SIMULATED_MINUTE = 4
 
 # Simulated trip distance from the house, in km. Demo data for the comparison, not a map.
-DISTANCE_KM = {"market": 2.4, "office": 6.8, "airport": 14.5, "pg": 1.2}
-DEFAULT_DISTANCE_KM = 5.0
 # Rupees a person accepts paying per minute saved, from their saved ride preference. Cheapest never pays for speed.
 TOLERANCE_INR_PER_MIN = {"cheapest": 0.0, "fastest": 60.0}
 DEFAULT_TOLERANCE_INR_PER_MIN = 15.0
@@ -51,7 +50,7 @@ def compare_ride_options(person_id: str, destination: str | None = None, ride_ty
         return {"person_id": person_id, "success": False, "reason": "needs_clarification", "field": "destination", "message": "Where should the ride go?"}
     quotes = rank_quotes([provider.quote(person_id, resolved_destination, resolved_ride_type) for provider in RIDE_PROVIDERS.values()])
     # Demo timing: one simulated minute of driver wait is shown as 4 seconds, so pickups stay under 30 s.
-    distance_km = DISTANCE_KM.get(resolved_destination, DEFAULT_DISTANCE_KM)
+    distance_km = places.distance_km(resolved_destination)
     quotes = [{**quote, "pickup_seconds_demo": quote["eta_minutes"] * DEMO_SECONDS_PER_SIMULATED_MINUTE, "distance_km": distance_km} for quote in quotes]
     priority = preferences.get("ride_priority")
     tolerance = TOLERANCE_INR_PER_MIN.get(priority, DEFAULT_TOLERANCE_INR_PER_MIN)
@@ -63,6 +62,11 @@ def compare_ride_options(person_id: str, destination: str | None = None, ride_ty
         # Never guess a preference: the caller must ask the person and save the answer first.
         result["needs_preference"] = {"key": "ride_priority", "question": "Do you want the cheapest ride or the fastest one?", "options": ["cheapest", "fastest"]}
     return result
+
+
+def list_saved_places() -> dict[str, Any]:
+    """The household's saved places, with the simulated road distance from the house."""
+    return {"places": places.saved_places(), "count": len(places.SAVED_PLACES)}
 
 
 def _place(name: str | None) -> str | None:

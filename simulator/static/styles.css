@@ -194,3 +194,7 @@ body { padding: 14px; }
 .approval-list { display: flex; flex-direction: column; gap: 4px; }
 .approval-list[hidden] { display: none; }
 .approval-card { margin-top: 14px; }
+
+/* Saved places at the top of the household window. */
+.saved-places { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; font-size: 14px; color: #cfe0f2; }
+.saved-places b { font-size: 15px; color: #e7f0fb; }

@@ -23,6 +23,7 @@ from simulator.mcp_gateway import READ_ONLY_PREFIXES, MCPGateway, as_bedrock_too
 from services.claims import check_claims
 from services.reliability import PERMISSION, UNKNOWN, classify_error
 from simulator.narration import describe_call, describe_doing
+from services.places import saved_places
 from services.household import authorize, is_action_request, resolve_mentions, roster as household_roster
 from services.scene import advance_scene, apply_tool_result, scene_summary
 from simulator.scripted_demo import PROVIDER_NAMES, is_confirmation, is_preference_answer, run_scripted
@@ -350,6 +351,7 @@ class AgentHost:
             "mode": await self.mode(),
             "clock": await self.clock(),
             "returns": self.returns_in_seconds(),
+            "saved_places": saved_places(),
             "scene_lines": scene_summary(scene, {p: m["display_name"] for p, m in household_roster().items()}),
         }
 
