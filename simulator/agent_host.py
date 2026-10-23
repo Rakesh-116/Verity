@@ -172,7 +172,7 @@ class AgentHost:
             "busy": state["busy"],
             "current": state["current"],
             "steps": list(state["steps"]),
-            "pending": waiting and {"person_id": waiting["person_id"], "name": waiting["name"], "provider": waiting["provider"], "provider_name": waiting.get("provider_name"), "destination": waiting["destination"], "pickup_seconds": waiting.get("pickup_seconds"), "price_inr": waiting.get("price_inr"), "eta_min": waiting.get("eta_min"), "ride_priority": waiting.get("ride_priority")},
+            "pending": waiting and {"person_id": waiting["person_id"], "name": waiting["name"], "provider": waiting["provider"], "provider_name": waiting.get("provider_name"), "destination": waiting["destination"], "pickup_seconds": waiting.get("pickup_seconds"), "price_inr": waiting.get("price_inr"), "eta_min": waiting.get("eta_min"), "ride_priority": waiting.get("ride_priority"), "distance_km": waiting.get("distance_km"), "choice_reason": waiting.get("choice_reason")},
             "booking": booking,
         }
 
@@ -297,10 +297,12 @@ class AgentHost:
                 person = output.get("person_id") or event["arguments"].get("person_id")
                 provider = quote.get("provider") or event["arguments"].get("provider", "")
                 # The saved preference this ride was chosen by, from the comparison in the same turn (None if not saved).
-                priority = next((e["result"]["output"].get("ride_priority") for e in trace if e.get("kind") == "tool" and e["name"] == "compare_ride_options" and isinstance(e["result"].get("output"), dict)), None)
+                comparison = next((e["result"]["output"] for e in trace if e.get("kind") == "tool" and e["name"] == "compare_ride_options" and isinstance(e["result"].get("output"), dict)), {})
                 pending.clear()
                 pending.update({
-                    "ride_priority": priority,
+                    "ride_priority": comparison.get("ride_priority"),
+                    "choice_reason": comparison.get("recommendation_reason") if comparison.get("recommended_ride_id") == quote.get("ride_id") else None,
+                    "distance_km": comparison.get("distance_km"),
                     "proposal_id": output["proposal_id"],
                     "person_id": person,
                     "name": roster.get(person, {}).get("display_name", person),

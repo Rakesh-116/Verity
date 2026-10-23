@@ -320,7 +320,9 @@ async function checkPending() {
     if (pending && approvalKey !== approvalShownFor) {
       // The rider's own saved preference, and the platform the ride was chosen by.
       const preference = pending.ride_priority ? `${pending.name}'s saved preference: ${pending.ride_priority}. ` : "";
-      document.querySelector("#approval-choice").textContent = `${preference}Chosen: ${pending.provider_name || pending.provider}, ₹${pending.price_inr}, ${pending.eta_min} min.`;
+      const trip = pending.distance_km ? `, ${pending.distance_km} km from the house` : "";
+      const why = pending.choice_reason ? ` ${pending.choice_reason}` : "";
+      document.querySelector("#approval-choice").textContent = `${preference}Chosen: ${pending.provider_name || pending.provider}, ₹${pending.price_inr}, ${pending.eta_min} min${trip}.${why}`;
       setTaskBlock("#approval-block", true);
     }
     if (!pending && approvalShownFor) setTaskBlock("#approval-block", false);

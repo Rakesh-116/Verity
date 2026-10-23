@@ -5,6 +5,7 @@ from typing import Any
 from providers.ride_simulated import SimulatedRideProvider
 from services.approval_store import approve_proposal, consume_approved_proposal, create_proposal
 from services.comparison_engine import rank_quotes
+from services.ride_value import choose_ride
 from services.provenance import simulated_provenance
 from state.store import append_action_log, load_json
 
@@ -20,6 +21,14 @@ RIDE_PROVIDERS = {
 
 
 DEMO_SECONDS_PER_SIMULATED_MINUTE = 4
+
+# Simulated trip distance from the house, in km. Demo data for the comparison, not a map.
+DISTANCE_KM = {"market": 2.4, "office": 6.8, "airport": 14.5, "pg": 1.2}
+DEFAULT_DISTANCE_KM = 5.0
+# Rupees a person accepts paying per minute saved, from their saved ride preference. Cheapest never pays for speed.
+TOLERANCE_INR_PER_MIN = {"cheapest": 0.0, "fastest": 60.0}
+DEFAULT_TOLERANCE_INR_PER_MIN = 15.0
+PROVIDER_LABELS = {"quickride": "QuickRide", "rideco": "RideCo", "citycab": "CityCab"}
 
 
 def _person_preferences(person_id: str) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
@@ -40,16 +49,14 @@ def compare_ride_options(person_id: str, destination: str | None = None, ride_ty
         return {"person_id": person_id, "success": False, "reason": "needs_clarification", "field": "destination", "message": "Where should the ride go?"}
     quotes = rank_quotes([provider.quote(person_id, resolved_destination, resolved_ride_type) for provider in RIDE_PROVIDERS.values()])
     # Demo timing: one simulated minute of driver wait is shown as 4 seconds, so pickups stay under 30 s.
-    quotes = [{**quote, "pickup_seconds_demo": quote["eta_minutes"] * DEMO_SECONDS_PER_SIMULATED_MINUTE} for quote in quotes]
+    distance_km = DISTANCE_KM.get(resolved_destination, DEFAULT_DISTANCE_KM)
+    quotes = [{**quote, "pickup_seconds_demo": quote["eta_minutes"] * DEMO_SECONDS_PER_SIMULATED_MINUTE, "distance_km": distance_km} for quote in quotes]
     priority = preferences.get("ride_priority")
-    if priority == "fastest":
-        quotes = sorted(quotes, key=lambda quote: (quote["eta_minutes"], quote["price_inr"]))
-        reason = "saved_preference_fastest"
-    elif priority == "cheapest":
-        reason = "saved_preference_cheapest"
-    else:
-        reason = "no_saved_preference_lowest_price"
-    result = {"person_id": person_id, "destination": resolved_destination, "ride_type": resolved_ride_type, "quotes": quotes, "recommended_ride_id": quotes[0]["ride_id"], "recommendation_reason": reason, "ride_priority": priority if priority in {"cheapest", "fastest"} else None}
+    tolerance = TOLERANCE_INR_PER_MIN.get(priority, DEFAULT_TOLERANCE_INR_PER_MIN)
+    chosen, reason = choose_ride(quotes, tolerance, PROVIDER_LABELS)
+    # The chosen ride is listed first; the rest keep their price order.
+    quotes = sorted(quotes, key=lambda quote: quote["ride_id"] != chosen["ride_id"])
+    result = {"person_id": person_id, "destination": resolved_destination, "ride_type": resolved_ride_type, "quotes": quotes, "recommended_ride_id": chosen["ride_id"], "recommendation_reason": reason, "distance_km": distance_km, "ride_priority": priority if priority in {"cheapest", "fastest"} else None}
     if priority not in {"cheapest", "fastest"}:
         # Never guess a preference: the caller must ask the person and save the answer first.
         result["needs_preference"] = {"key": "ride_priority", "question": "Do you want the cheapest ride or the fastest one?", "options": ["cheapest", "fastest"]}

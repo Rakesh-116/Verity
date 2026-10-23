@@ -32,6 +32,32 @@ def estimate_value_of_time(choices: list[dict[str, Any]] | None, default: float 
     return round(median(samples), 2), f"estimated from {len(choices or [])} past choices"
 
 
+def choose_ride(quotes: list[dict[str, Any]], tolerance_inr_per_min: float, names: dict[str, str]) -> tuple[dict[str, Any], str]:
+    """Price and time are both weighed. Start from the cheapest ride, and move to a faster one only when the extra
+    fare per minute saved is within what the person accepts. The saved preference only sets that tolerance."""
+    cheapest = min(quotes, key=lambda quote: (quote["price_inr"], quote["eta_minutes"]))
+    current = cheapest
+    while True:
+        faster = [
+            quote for quote in quotes
+            if quote["eta_minutes"] < current["eta_minutes"]
+            and (quote["price_inr"] - current["price_inr"]) / (current["eta_minutes"] - quote["eta_minutes"]) <= tolerance_inr_per_min
+        ]
+        if not faster:
+            break
+        current = min(faster, key=lambda quote: quote["eta_minutes"])
+    name = names.get(current["provider"], current["provider"])
+    if current is not cheapest:
+        extra = current["price_inr"] - cheapest["price_inr"]
+        saved = cheapest["eta_minutes"] - current["eta_minutes"]
+        reason = f"{name} is {saved} min faster for ₹{extra} more: ₹{extra / saved:.0f} per minute saved, within the ₹{tolerance_inr_per_min:.0f} per minute accepted."
+    elif tolerance_inr_per_min == 0:
+        reason = f"{name} is the cheapest. You asked for the cheapest ride, so no faster ride is considered."
+    else:
+        reason = f"{name} is the cheapest. Faster rides cost more than the ₹{tolerance_inr_per_min:.0f} per minute accepted."
+    return current, reason
+
+
 def score_option(
     eta_min: float,
     fare_inr: float,
