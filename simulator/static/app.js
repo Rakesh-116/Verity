@@ -295,9 +295,7 @@ async function checkPending() {
       document.querySelector("#confirm-actions").hidden = true;
       document.querySelector("#confirm-done").hidden = false;
       showOverlay("confirm-overlay");
-    } else if (!booking) {
-      hideOverlay("confirm-overlay");
-    }
+    }  // a booking popup is closed only by the person, never by a timer or a status check
     confirmShownFor = bookedKey;
   } catch (error) { /* the next check will try again */ }
 }
@@ -399,8 +397,7 @@ async function pollProgress() {
 }
 function stopProgress() {
   clearInterval(progressTimer); progressTimer = null;
-  // Keep the finished steps visible for a moment, then let the card close.
-  setTimeout(() => { if (!progressTimer) document.querySelector("#thinking-card").hidden = true; }, 6000);
+  // The working card stays open until the person closes it or the next request replaces it.
   document.querySelector(".echo").classList.remove("thinking");
   document.querySelector("#agent-now").textContent = IDLE_AGENT_TEXT;
 }
