@@ -228,6 +228,8 @@ function renderHouseholdList() {
     const row = el("div", `household-row ${m.presence}`);
     const text = el("div", "household-text");
     text.append(el("b", null, m.display_name), el("span", null, m.presence === "away" ? `Away · back at ${m.return_at || "unknown time"}` : "Home"));
+    // Saved preferences are visible: a value, or 'not set yet' so it is clear nothing has been guessed.
+    text.append(el("span", "pref", `Ride: ${m.ride_priority || "not set yet"} · usual destination: ${m.usual_destination || "none"}`));
     row.append(text);
     const actions = el("div", "household-actions");
     if (m.presence === "away") {
@@ -261,25 +263,24 @@ async function checkPending() {
     const data = await response.json();
     const pending = data.pending;
     const booking = data.booking;
-    const key = pending ? `ask:${JSON.stringify(pending)}` : booking ? `booked:${booking.reference}` : null;
-    if (pending && key !== confirmShownFor) {
-      document.querySelector("#confirm-title").textContent = "Confirm the simulated ride";
-      document.querySelector("#confirm-text").textContent = `${pending.provider_name || pending.provider} ride for ${pending.name} to ${pending.destination}. Driver arrives in about ${pending.pickup_seconds} seconds (simulated). ₹${pending.price_inr}.`;
-      document.querySelector("#confirm-actions").hidden = false;
-      document.querySelector("#confirm-done").hidden = true;
-      showOverlay("confirm-overlay");
-    } else if (booking && key !== confirmShownFor) {
+    // A ride waiting for approval shows Accept and Reject under Verity's message.
+    document.querySelector("#reply-actions").hidden = !pending;
+    // A booked ride shows its details in the popup, once per booking.
+    const bookedKey = booking ? `booked:${booking.reference}` : null;
+    if (booking && bookedKey !== confirmShownFor) {
       document.querySelector("#confirm-title").textContent = "Ride booked (simulated)";
       document.querySelector("#confirm-text").textContent = `${booking.provider} ride for ${booking.name} to ${booking.destination}. Driver arrives in about ${booking.pickup_seconds} seconds (simulated). ₹${booking.price_inr}. Reference ${booking.reference}.`;
       document.querySelector("#confirm-actions").hidden = true;
       document.querySelector("#confirm-done").hidden = false;
       showOverlay("confirm-overlay");
-    } else if (!pending && !booking) {
+    } else if (!booking) {
       hideOverlay("confirm-overlay");
     }
-    confirmShownFor = key;
+    confirmShownFor = bookedKey;
   } catch (error) { /* the next check will try again */ }
 }
+document.querySelector("#accept-ride").addEventListener("click", () => enqueueAsk("yes", speaker.value));
+document.querySelector("#reject-ride").addEventListener("click", () => enqueueAsk("no", speaker.value));
 document.querySelector("#confirm-yes").addEventListener("click", () => { hideOverlay("confirm-overlay"); enqueueAsk("yes", speaker.value); });
 document.querySelector("#confirm-no").addEventListener("click", () => { hideOverlay("confirm-overlay"); enqueueAsk("no", speaker.value); });
 document.querySelector("#confirm-done").addEventListener("click", () => hideOverlay("confirm-overlay"));

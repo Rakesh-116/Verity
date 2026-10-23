@@ -38,6 +38,11 @@ async def _set_time(host: AgentHost, sim_time: str) -> None:
     assert (await host.set_clock(sim_time))["success"]
 
 
+async def _set_priority(host: AgentHost, person_id: str, value: str) -> None:
+    """Set or clear a saved ride preference through MCP, as the app would after a person answers."""
+    await host._gateway.call_tool("remember_preference", {"person_id": person_id, "key": "ride_priority", "value": value})
+
+
 def test_amma_is_away_until_her_time_then_returns_by_the_clock() -> None:
     set_presence("amma", "away", "09:00")  # set explicitly: the working-copy state can change while the simulator runs
     assert set_sim_time("08:59")["success"]
@@ -55,6 +60,7 @@ def test_booking_for_amma_waits_until_she_is_home_then_confirms_then_books() -> 
     async def scenario() -> None:
         host = _host()
         await _set_time(host, "06:00")
+        await _set_priority(host, "amma", "cheapest")
         refused = await host.run_turn("Book Amma a ride to the market", "son", "s1")
         assert refused["speech"].startswith("Amma is away until 09:00"), refused["speech"]
         assert not [e for e in refused["trace"] if e["kind"] == "tool"], refused["trace"]
@@ -137,6 +143,21 @@ def test_yes_while_a_ride_waits_is_answered_by_the_app_even_with_a_model() -> No
     asyncio.run(scenario())
 
 
+def test_an_unset_ride_preference_is_asked_once_then_saved() -> None:
+    async def scenario() -> None:
+        host = _host()
+        await _set_time(host, "09:00")
+        await _set_priority(host, "son", "")
+        asked = await host.run_turn("Book me a ride to the market", "son", "s5")
+        assert "cheapest one or the fastest one" in asked["speech"], asked["speech"]
+        answered = await host.run_turn("fastest", "son", "s5")
+        assert answered["speech"].startswith("I'll arrange a simulated"), answered["speech"]
+        saved = await host._gateway.call_tool("get_person_context", {"person_id": "son"})
+        assert saved["output"]["preferences"]["ride_priority"] == "fastest", saved
+
+    asyncio.run(scenario())
+
+
 if __name__ == "__main__":
     test_amma_is_away_until_her_time_then_returns_by_the_clock()
     test_scripted_mode_is_reported()
@@ -145,4 +166,5 @@ if __name__ == "__main__":
     test_unknown_commands_get_the_plain_list_not_a_made_up_action()
     test_a_ride_proposed_by_the_model_waits_for_a_yes_like_the_scripted_demo()
     test_yes_while_a_ride_waits_is_answered_by_the_app_even_with_a_model()
+    test_an_unset_ride_preference_is_asked_once_then_saved()
     print("Phase 11 scripted demo and clock verification passed.")

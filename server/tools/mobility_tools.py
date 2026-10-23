@@ -41,7 +41,19 @@ def compare_ride_options(person_id: str, destination: str | None = None, ride_ty
     quotes = rank_quotes([provider.quote(person_id, resolved_destination, resolved_ride_type) for provider in RIDE_PROVIDERS.values()])
     # Demo timing: one simulated minute of driver wait is shown as 4 seconds, so pickups stay under 30 s.
     quotes = [{**quote, "pickup_seconds_demo": quote["eta_minutes"] * DEMO_SECONDS_PER_SIMULATED_MINUTE} for quote in quotes]
-    return {"person_id": person_id, "destination": resolved_destination, "ride_type": resolved_ride_type, "quotes": quotes, "recommended_ride_id": quotes[0]["ride_id"], "recommendation_reason": "lowest_price_then_fastest_eta"}
+    priority = preferences.get("ride_priority")
+    if priority == "fastest":
+        quotes = sorted(quotes, key=lambda quote: (quote["eta_minutes"], quote["price_inr"]))
+        reason = "saved_preference_fastest"
+    elif priority == "cheapest":
+        reason = "saved_preference_cheapest"
+    else:
+        reason = "no_saved_preference_lowest_price"
+    result = {"person_id": person_id, "destination": resolved_destination, "ride_type": resolved_ride_type, "quotes": quotes, "recommended_ride_id": quotes[0]["ride_id"], "recommendation_reason": reason, "ride_priority": priority if priority in {"cheapest", "fastest"} else None}
+    if priority not in {"cheapest", "fastest"}:
+        # Never guess a preference: the caller must ask the person and save the answer first.
+        result["needs_preference"] = {"key": "ride_priority", "question": "Do you want the cheapest ride or the fastest one?", "options": ["cheapest", "fastest"]}
+    return result
 
 
 def create_ride_booking_proposal(person_id: str, provider: str, ride_id: str, destination: str | None = None) -> dict[str, Any]:

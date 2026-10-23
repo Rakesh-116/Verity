@@ -21,7 +21,7 @@ from simulator.mcp_gateway import MCPGateway, as_bedrock_tools, as_openai_tools,
 from simulator.narration import describe_call, describe_doing
 from services.household import authorize, is_action_request, resolve_mentions, roster as household_roster
 from services.scene import advance_scene, apply_tool_result, scene_summary
-from simulator.scripted_demo import PROVIDER_NAMES, is_confirmation, run_scripted
+from simulator.scripted_demo import PROVIDER_NAMES, is_confirmation, is_preference_answer, run_scripted
 
 
 SKILL_PATH = PROJECT_DIRECTORY / "skills" / "verity" / "SKILL.md"
@@ -243,7 +243,8 @@ class AgentHost:
         pending = self._pending.get(session_id or "local", {})
         waiting = "proposal_id" in pending
         # A plain yes or no answers the ride on screen. The app handles it, the same way with or without a model.
-        if (waiting and is_confirmation(text)) or not self.llm_configured():
+        awaiting = "awaiting" in pending
+        if (waiting and is_confirmation(text)) or (awaiting and is_preference_answer(text)) or not self.llm_configured():
             return await self._scripted_turn(text, active_speaker_id, session_id, trace)
 
         history_key = self._history_key(session_id, active_speaker_id)

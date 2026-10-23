@@ -17,6 +17,7 @@ RIDE = re.compile(r"\bbook (?P<who>\w+) a ride to (?P<where>[\w ]+?)\s*[.!?]?$",
 WATCH = re.compile(r"\bwatch (tv|the tv|a movie|a film)\b", re.IGNORECASE)
 MASSAGE = re.compile(r"\b(massag\w*|help)\b", re.IGNORECASE)
 CANCEL = re.compile(r"^(no|no thanks|cancel|cancel it|don'?t|do not|don'?t book it)[.!]?$", re.IGNORECASE)
+PREFERENCE = re.compile(r"^(the )?(cheapest|cheaper|fastest|faster)( one| ride| option)?[.!]?$", re.IGNORECASE)
 CONFIRM = re.compile(r"^(yes|yes,? please|confirm|confirm it|go ahead|book it|ok|okay)[.!]?$", re.IGNORECASE)
 HELP = (
     "Without an AI key I can run these simulated commands: "
@@ -26,6 +27,11 @@ HELP = (
 )
 
 Call = Callable[[str, dict[str, Any]], Awaitable[dict[str, Any]]]
+
+
+def is_preference_answer(text: str) -> bool:
+    """True for a plain 'cheapest' or 'fastest', which answers a question about how the person wants rides chosen."""
+    return bool(PREFERENCE.match(text.strip()))
 
 
 def is_confirmation(text: str) -> bool:
@@ -47,6 +53,13 @@ async def run_scripted(
 ) -> str:
     """Run one plain command and return the sentence to say. `pending` holds a ride waiting for confirmation."""
     stripped = text.strip()
+
+    if "awaiting" in pending and PREFERENCE.match(stripped):
+        # The person answered the question: save it for them, then carry on with the ride they asked for.
+        awaiting = pending.pop("awaiting")
+        value = "cheapest" if stripped.lower().lstrip("the ").startswith(("cheap",)) else "fastest"
+        await call("remember_preference", {"person_id": awaiting["person_id"], "key": "ride_priority", "value": value})
+        return await run_scripted(awaiting["ride_text"], speaker, pending, roster, call)
 
     if CANCEL.match(stripped) and "proposal_id" in pending:
         name = pending.get("name", "that")
@@ -96,6 +109,10 @@ async def run_scripted(
         # A successful comparison has no "success" key; only an explicit False is a refusal.
         if comparison.get("success") is False or not comparison.get("quotes"):
             return f"I could not find rides to {where}: {comparison.get('reason', 'no quotes')}."
+        if comparison.get("needs_preference"):
+            # Never guess how the person wants rides chosen: ask once, and save the answer.
+            pending["awaiting"] = {"person_id": person_id, "ride_text": stripped}
+            return f"Before I book {who}'s ride: do you want the cheapest one or the fastest one?"
         quote = comparison["quotes"][0]
         proposal = await call("create_ride_booking_proposal", {
             "person_id": person_id,
