@@ -191,19 +191,22 @@ const CONFIRMATION_QUESTION = /^(shall i|should i|do you want (me )?to|would you
 
 async function ask(rawText, personId = speaker.value) {
   const text = rawText.replace(/^alexa[, ]*/i, "").trim(); if (!text) return;
-  setTaskBlock("#question-block", false); addMessage("user", PEOPLE[personId].label, text, personId); startProgress(); characters[personId].status = "busy"; renderCharacters(); status.textContent = "Agent is choosing tools…";
+  const requestId = crypto.randomUUID();
+  addMessage("user", PEOPLE[personId].label, text, personId);
+  startProgress(requestId, `${PEOPLE[personId].label}: ${requestLabel(text)}`);
+  characters[personId].status = "busy"; renderCharacters(); status.textContent = "Agent is choosing tools…";
   try {
-    const response = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ session_id: sessionId, person_id: personId, text }) });
+    const response = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ session_id: sessionId, person_id: personId, text, request_id: requestId }) });
     const result = await response.json(); if (!response.ok) throw new Error(result.error || "Request failed");
     const failed = result.trace.some((event) => event.kind === "tool" && event.result.output && event.result.output.success === false);
     const spokenResponse = plainSpeech(result.speech);
     const { statement, question } = splitQuestion(spokenResponse);
     const options = CONFIRMATION_QUESTION.test(question || "") ? ["Yes", "No"] : [];
-    renderQuestion(result.question || (question ? { text: question, options } : null));
+    renderQuestion(result.question || (question ? { text: question, options } : null), requestId);
     const replyText = result.question || !question ? spokenResponse : statement;
     characters[personId].status = failed ? "alert" : "idle"; renderCharacters(); addMessage("assistant", "Verity", spokenResponse); document.querySelector("#reply").textContent = replyText; trace.textContent = JSON.stringify(result.trace, null, 2); renderSteps(result.trace); traceStatus.textContent = `${result.trace.length} event${result.trace.length === 1 ? "" : "s"}`; speak(spokenResponse); await refreshState();
   } catch (error) { characters[personId].status = "alert"; renderCharacters(); addMessage("assistant", "Verity", "The simulated host could not complete that request."); trace.textContent = String(error); traceStatus.textContent = "Error"; status.textContent = "Error"; }
-  finally { stopProgress(); prompt.focus(); }
+  finally { stopProgress(requestId); prompt.focus(); }
 }
 
 form.addEventListener("submit", (event) => { event.preventDefault(); enqueueAsk(prompt.value); prompt.value = ""; });
@@ -298,13 +301,14 @@ function bookingLine(booking, remaining) {
 }
 function startBookingCountdown(booking) {
   bookingCountdown = { booking, startedAt: Date.now() };
-  document.querySelector("#booking-text").textContent = bookingLine(booking, booking.pickup_seconds);
+  taskCards.get(booking.request_id || "general").querySelector(".booking-text").textContent = bookingLine(booking, booking.pickup_seconds);
 }
 setInterval(() => {
   if (!bookingCountdown) return;
   const { booking, startedAt } = bookingCountdown;
   const remaining = Math.max(0, booking.pickup_seconds - Math.floor((Date.now() - startedAt) / 1000));
-  if (!document.querySelector("#booking-block").hidden) document.querySelector("#booking-text").textContent = bookingLine(booking, remaining);
+  const card = taskCards.get(booking.request_id || "general");
+  if (card && !card.querySelector(".booking-block").hidden) card.querySelector(".booking-text").textContent = bookingLine(booking, remaining);
   if (remaining === 0) bookingCountdown = null;
 }, 250); // a quarter-second check keeps the number within a quarter-second of the real time
 
@@ -312,20 +316,19 @@ async function checkPending() {
   try {
     const response = await fetch(`/api/progress?session_id=${encodeURIComponent(sessionId)}`);
     const data = await response.json();
-    const pending = data.pending;
-    const booking = data.booking;
-    // Every ride or order waiting for a decision is its own card in the "Verity is working" popup.
+    // Every ride, order or invitation waiting for a decision is a card in the popup of the request that raised it.
     renderApprovals(data.approvals || []);
-    // A booked ride shows its details in the same popup, once per booking. Only the person closes it.
+    // A booked ride shows its details in the popup of the request that booked it, once. Only the person closes it.
+    const booking = data.booking;
     const bookedKey = booking ? `booked:${booking.reference}` : null;
     if (booking && bookedKey !== confirmShownFor) {
+      const card = taskCards.get(booking.request_id || "general") || openTaskCard(booking.request_id || "general");
       startBookingCountdown(booking);
-      setTaskBlock("#booking-block", true);
+      setBlock(card, ".booking-block", true);
     }
     confirmShownFor = bookedKey;
   } catch (error) { /* the next check will try again */ }
 }
-document.querySelector("#booking-done").addEventListener("click", () => setTaskBlock("#booking-block", false));
 setInterval(checkPending, 1500);
 
 // Suggested tasks: one click asks Verity as the person currently selected.
@@ -369,33 +372,71 @@ document.querySelector("#sim-time").addEventListener("change", async (event) => 
 // Live status line: polls what Verity is doing right now, in plain words.
 let progressTimer = null;
 const IDLE_AGENT_TEXT = "Ready. Ask for something, or try the time tick.";
-// A question from Verity is asked inside the "Verity is working" popup, with its answers as buttons.
-// Each button sends the answer as a message. Typing an answer in the box also works.
-function renderQuestion(question) {
-  const choices = document.querySelector("#question-choices");
+// One popup per request. The hidden #thinking-card is the template; each request gets its own copy, so two requests
+// never share a popup, and each popup shows only its own steps, question, approvals and booking.
+const taskCards = new Map();
+let cardsOpened = 0;
+const requestTimers = new Map();
+function requestLabel(text) { return text.length > 40 ? `${text.slice(0, 40)}…` : text; }
+function openTaskCard(requestId, label = "") {
+  if (taskCards.has(requestId)) return taskCards.get(requestId);
+  const card = document.querySelector("#thinking-card").cloneNode(true);
+  card.removeAttribute("id");
+  card.querySelectorAll("[id]").forEach((node) => node.removeAttribute("id"));
+  card.hidden = false;
+  card.dataset.request = requestId;
+  const offset = cardsOpened++ % 6;
+  card.style.top = `${150 + offset * 34}px`;
+  card.style.left = `calc(50% + ${offset * 26}px)`;
+  card.style.zIndex = String(40 + offset);
+  if (label) card.querySelector(".thinking-head b").textContent = `Verity is working · ${label}`;
+  card.querySelector(".task-close").addEventListener("click", () => closeTaskCard(requestId));
+  card.querySelector(".booking-done").addEventListener("click", () => setBlock(card, ".booking-block", false));
+  makeMovable(card);
+  document.body.append(card);
+  taskCards.set(requestId, card);
+  return card;
+}
+function closeTaskCard(requestId) {
+  const card = taskCards.get(requestId);
+  if (!card) return;
+  card.remove();
+  taskCards.delete(requestId);
+}
+// A popup can be closed only when the person has nothing left to answer in it.
+function refreshCard(card) {
+  const list = card.querySelector(".approval-list");
+  list.hidden = list.children.length === 0;
+  const answerNeeded = !card.querySelector(".question-block").hidden || !list.hidden;
+  card.querySelector(".task-close").hidden = answerNeeded;
+}
+function setBlock(card, selector, visible) {
+  card.querySelector(selector).hidden = !visible;
+  if (visible) card.hidden = false;
+  refreshCard(card);
+}
+
+// A question from Verity is asked inside the popup of the request that raised it, with its answers as buttons.
+// Typing an answer in the box also works.
+function renderQuestion(question, requestId) {
+  const card = openTaskCard(requestId || "general");
+  const choices = card.querySelector(".question-choices");
   choices.replaceChildren();
-  if (!question) { setTaskBlock("#question-block", false); return; }
-  document.querySelector("#question-text").textContent = question.text;
+  if (!question) { setBlock(card, ".question-block", false); return; }
+  card.querySelector(".question-text").textContent = question.text;
   question.options.forEach((option, index) => {
-    const button = el("button", index === 0 ? "primary" : "secondary", option === "cheapest" ? "Cheapest" : option === "fastest" ? "Fastest" : option === "Yes" ? "Yes" : option === "No" ? "No" : option);
+    const button = el("button", index === 0 ? "primary" : "secondary", option === "cheapest" ? "Cheapest" : option === "fastest" ? "Fastest" : option);
     button.type = "button";
-    button.addEventListener("click", () => { setTaskBlock("#question-block", false); enqueueAsk(option, speaker.value); });
+    button.addEventListener("click", () => { setBlock(card, ".question-block", false); enqueueAsk(option, speaker.value); });
     choices.append(button);
   });
-  setTaskBlock("#question-block", true);
+  setBlock(card, ".question-block", true);
 }
 
-// Blocks inside the progress popup. The popup cannot be closed while the person still has to answer.
-function setTaskBlock(selector, visible) {
-  document.querySelector(selector).hidden = !visible;
-  const answerNeeded = !document.querySelector("#question-block").hidden || !document.querySelector("#approval-list").hidden;
-  document.querySelector("#thinking-close").hidden = answerNeeded;
-  if (visible) document.querySelector("#thinking-card").hidden = false;
-}
-
-// One card per waiting ride or order. Accept and Decline send that card's proposal id, and only that proposal changes.
+// One card per ride, order or invitation waiting for a decision. Each card sends only its own proposal id.
 const approvalCards = new Map();
 function approvalText(approval) {
+  if (approval.kind === "invite") return `${approval.speaker_name} is watching TV. Join ${approval.speaker_name} in the TV room?`;
   if (approval.kind === "order") return `Order for ${approval.name} from ${approval.provider_name}: ${(approval.items || []).join(", ")}.`;
   const preference = approval.ride_priority ? `${approval.name}'s saved preference: ${approval.ride_priority}. ` : "";
   const trip = approval.distance_km ? `, ${approval.distance_km} km from the house` : "";
@@ -403,30 +444,34 @@ function approvalText(approval) {
   return `${approval.name}'s ride. ${preference}Chosen: ${approval.provider_name || approval.provider}, ₹${approval.price_inr}, ${approval.eta_min} min${trip}.${why}`;
 }
 function renderApprovals(approvals) {
-  const list = document.querySelector("#approval-list");
   const waiting = new Set(approvals.map((approval) => approval.proposal_id));
-  approvalCards.forEach((card, proposalId) => {
-    if (!waiting.has(proposalId)) { card.remove(); approvalCards.delete(proposalId); }
+  approvalCards.forEach((node, proposalId) => {
+    if (waiting.has(proposalId)) return;
+    const card = node.closest(".thinking-card");
+    node.remove();
+    approvalCards.delete(proposalId);
+    if (card) refreshCard(card);
   });
   approvals.forEach((approval) => {
     if (approvalCards.has(approval.proposal_id)) return;
-    const card = el("div", "task-block approval-card");
-    card.dataset.proposal = approval.proposal_id;
-    card.append(el("p", "task-text", approvalText(approval)));
-    const actions = el("div", "task-actions");
-    const decline = el("button", "secondary", "Decline");
-    const accept = el("button", "primary", "Accept");
+    const card = openTaskCard(approval.request_id || "general");
+    const node = el("div", "task-block approval-card");
+    node.dataset.proposal = approval.proposal_id;
+    node.append(el("p", "task-text", approvalText(approval)));
+    const invite = approval.kind === "invite";
+    const decline = el("button", "secondary", invite ? "Not now" : "Decline");
+    const accept = el("button", "primary", invite ? "Join" : "Accept");
     decline.type = accept.type = "button";
     decline.addEventListener("click", () => decideApproval(approval.proposal_id, "decline"));
     accept.addEventListener("click", () => decideApproval(approval.proposal_id, "accept"));
+    const actions = el("div", "task-actions");
     actions.append(decline, accept);
-    card.append(actions);
-    approvalCards.set(approval.proposal_id, card);
-    list.append(card);
+    node.append(actions);
+    card.querySelector(".approval-list").append(node);
+    approvalCards.set(approval.proposal_id, node);
+    card.hidden = false;
+    refreshCard(card);
   });
-  list.hidden = approvals.length === 0;
-  if (approvals.length) document.querySelector("#thinking-card").hidden = false;
-  document.querySelector("#thinking-close").hidden = approvals.length > 0 || !document.querySelector("#question-block").hidden;
 }
 async function decideApproval(proposalId, decision) {
   approvalCards.get(proposalId)?.querySelectorAll("button").forEach((button) => { button.disabled = true; });
@@ -441,14 +486,10 @@ async function decideApproval(proposalId, decision) {
   await checkPending();
 }
 
-function showThinking() {
-  document.querySelector("#thinking-card").hidden = false;
-  document.querySelector("#thinking-steps").replaceChildren();
-  document.querySelector("#thinking-now").textContent = "Thinking about what you asked…";
-}
-function renderThinking(steps, current) {
-  if (current) document.querySelector("#thinking-now").textContent = current;
-  const list = document.querySelector("#thinking-steps");
+// The steps of one request, shown in that request's popup.
+function renderThinking(card, steps, current) {
+  if (current) card.querySelector(".thinking-now").textContent = current;
+  const list = card.querySelector(".thinking-steps");
   list.replaceChildren(...steps.map((step) => {
     const item = document.createElement("li");
     item.className = step.ok ? "ok" : "fail";
@@ -456,26 +497,29 @@ function renderThinking(steps, current) {
     return item;
   }));
 }
-document.querySelector("#thinking-close").addEventListener("click", () => { document.querySelector("#thinking-card").hidden = true; });
-
-function startProgress() {
-  showThinking();
+function startProgress(requestId, label) {
+  const card = openTaskCard(requestId, label);
+  card.querySelector(".thinking-steps").replaceChildren();
+  card.querySelector(".thinking-now").textContent = "Thinking about what you asked…";
   document.querySelector("#agent-now").textContent = "Thinking about what you asked…";
   document.querySelector(".echo").classList.add("thinking");
-  clearInterval(progressTimer); progressTimer = setInterval(pollProgress, 500);
+  requestTimers.set(requestId, setInterval(() => pollProgress(requestId), 500));
 }
-async function pollProgress() {
+async function pollProgress(requestId) {
+  const card = taskCards.get(requestId);
+  if (!card) return;
   try {
-    const response = await fetch(`/api/progress?session_id=${encodeURIComponent(sessionId)}`);
+    const response = await fetch(`/api/progress?session_id=${encodeURIComponent(sessionId)}&request_id=${encodeURIComponent(requestId)}`);
     const data = await response.json();
     if (data.current) document.querySelector("#agent-now").textContent = data.current;
-    renderThinking(data.steps || [], data.current);
+    renderThinking(card, data.steps || [], data.current);
   } catch (error) { /* the next poll will try again */ }
 }
-function stopProgress() {
-  clearInterval(progressTimer); progressTimer = null;
-  // The working card stays open until the person closes it or the next request replaces it.
-  document.querySelector(".echo").classList.remove("thinking");
+function stopProgress(requestId) {
+  clearInterval(requestTimers.get(requestId));
+  requestTimers.delete(requestId);
+  // The popup stays open until the person closes it or has answered what it asks.
+  if (!requestTimers.size) document.querySelector(".echo").classList.remove("thinking");
   document.querySelector("#agent-now").textContent = IDLE_AGENT_TEXT;
 }
 

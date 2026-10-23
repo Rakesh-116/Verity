@@ -30,6 +30,7 @@ async def chat(request: Request) -> JSONResponse:
             text,
             str(person_id) if person_id else None,
             str(session_id) if session_id else None,
+            str(payload["request_id"]) if payload.get("request_id") else None,
         )
     )
 
@@ -48,7 +49,7 @@ async def state(_: Request) -> JSONResponse:
 
 async def progress(request: Request) -> JSONResponse:
     """Plain-English live progress for the current turn; polled by the UI while it runs."""
-    return JSONResponse(host.progress(request.query_params.get("session_id")))
+    return JSONResponse(host.progress(request.query_params.get("session_id"), request.query_params.get("request_id")))
 
 
 async def rides(_: Request) -> JSONResponse:

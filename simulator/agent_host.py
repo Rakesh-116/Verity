@@ -131,6 +131,12 @@ def tools_for_request(text: str, mcp_tools: list[dict[str, Any]]) -> list[dict[s
     return [tool for tool in mcp_tools if tool["name"] in wanted]
 
 
+def _limit_reply(trace: list[dict[str, Any]]) -> str:
+    """Said when the model used all its rounds. It states what was already done, so nothing is hidden."""
+    done = " ".join(event["say"] for event in trace if event.get("kind") == "tool" and event.get("ok") and event.get("say"))
+    return "I reached the tool-call limit before finishing." + (f" So far: {done}" if done else "")
+
+
 def _tool_events(result: dict[str, Any]) -> list[dict[str, Any]]:
     return [event for event in result.get("trace", []) if event.get("kind") == "tool"]
 
@@ -139,6 +145,13 @@ def _tool_events(result: dict[str, Any]) -> list[dict[str, Any]]:
 RUN_TIME_LIMIT_S = 60
 # A rider who has left on a ride comes back after this many real seconds (the page shows the countdown).
 RIDER_RETURN_AFTER_S = 180
+# When someone starts watching TV, the others at home are asked to join. If they decline, they go to one of these rooms.
+WATCH_ROOMS = {"son": ["bedroom", "living_room"], "amma": ["kitchen", "living_room"]}
+
+
+def _progress_key(session_id: str | None, request_id: str | None) -> str:
+    """Each request has its own progress, so two requests at once never overwrite each other's steps."""
+    return f"{session_id or 'local'}|{request_id or ''}"
 # Each round is one model call plus its tool calls. A ride needs about five rounds (preferences, compare, prepare, reply).
 MAX_TOOL_ROUNDS = 10
 
@@ -186,9 +199,9 @@ class AgentHost:
         if self._pending.get(key, {}).get("proposal_id") == proposal_id:
             self._pending[key].pop("proposal_id", None)
 
-    def progress(self, session_id: str | None) -> dict[str, Any]:
-        """What Verity is doing right now for this session, and every ride or order waiting for a decision."""
-        state = self._progress.get(session_id or "local", {"busy": False, "current": "", "steps": []})
+    def progress(self, session_id: str | None, request_id: str | None = None) -> dict[str, Any]:
+        """What Verity is doing right now for one request, and every ride, order or invitation waiting for a decision."""
+        state = self._progress.get(_progress_key(session_id, request_id), {"busy": False, "current": "", "steps": []})
         approvals = self._open_approvals(session_id)
         return {
             "busy": state["busy"],
@@ -319,7 +332,40 @@ class AgentHost:
             "scene_lines": scene_summary(scene, {p: m["display_name"] for p, m in household_roster().items()}),
         }
 
-    def _track_ride_confirmation(self, session_id: str | None, trace: list[dict[str, Any]]) -> None:
+    async def _after_turn(self, session_id: str | None, request_id: str | None, speaker: str | None, trace: list[dict[str, Any]]) -> None:
+        """Track what this request proposed, and when someone started the TV, offer it to the others at home."""
+        self._track_ride_confirmation(session_id, trace, request_id)
+        if speaker and any(event.get("kind") == "tool" and event["name"] == "start_watch" and event.get("ok") for event in trace):
+            await self._offer_watch_invites(session_id, request_id, speaker)
+
+    async def _offer_watch_invites(self, session_id: str | None, request_id: str | None, speaker: str) -> None:
+        """Each other member who is home, and not already in the TV room, is asked to join. Joining moves them there."""
+        key = session_id or "local"
+        household = await self._gateway.call_tool("get_household", {})
+        home = await self._gateway.call_tool("get_home_state", {})
+        rooms: dict[str, str] = {}
+        for room, value in (home.get("output") or {}).items():
+            for person in (value.get("occupants", []) if isinstance(value, dict) else []):
+                rooms[person] = room
+        roster = household_roster()
+        speaker_name = roster.get(speaker, {}).get("display_name", speaker)
+        approvals = self._approvals.setdefault(key, {})
+        for member in (household.get("output") or {}).get("members", []):
+            person = member["person_id"]
+            if person in (speaker, "housebot") or member.get("presence") != "home" or rooms.get(person) == "tv_room":
+                continue
+            invite_id = f"invite.{request_id or 'x'}.{person}"
+            approvals[invite_id] = {
+                "proposal_id": invite_id,
+                "kind": "invite",
+                "person_id": person,
+                "name": roster.get(person, {}).get("display_name", person),
+                "speaker_name": speaker_name,
+                "request_id": request_id,
+                "alternatives": WATCH_ROOMS.get(person, ["living_room"]),
+            }
+
+    def _track_ride_confirmation(self, session_id: str | None, trace: list[dict[str, Any]], request_id: str | None = None) -> None:
         """Each ride or order the model proposed waits for a decision, shown as its own card in the popup."""
         approvals = self._approvals.setdefault(session_id or "local", {})
         roster = household_roster()
@@ -338,6 +384,7 @@ class AgentHost:
                 approvals[output["proposal_id"]] = {
                     "proposal_id": output["proposal_id"],
                     "kind": "ride",
+                    "request_id": request_id,
                     "person_id": person,
                     "name": roster.get(person, {}).get("display_name", person),
                     "provider": provider,
@@ -355,6 +402,7 @@ class AgentHost:
                 approvals[output["proposal_id"]] = {
                     "proposal_id": output["proposal_id"],
                     "kind": "order",
+                    "request_id": request_id,
                     "person_id": person,
                     "name": roster.get(person, {}).get("display_name", person),
                     "provider": provider,
@@ -365,7 +413,7 @@ class AgentHost:
                 gone = approvals.pop(output["proposal_id"])
                 self._pending.setdefault(session_id or "local", {})["booking"] = {
                     "provider": gone.get("provider_name"), "name": gone.get("name"), "destination": gone.get("destination"),
-                    "pickup_seconds": output.get("pickup_seconds_demo"), "price_inr": gone.get("price_inr"), "reference": output.get("confirmed_booking_id"),
+                    "pickup_seconds": output.get("pickup_seconds_demo"), "price_inr": gone.get("price_inr"), "reference": output.get("confirmed_booking_id"), "request_id": request_id,
                 }
             elif event["name"] in {"place_order", "decline_ride_booking", "decline_order"}:
                 approvals.pop(output.get("proposal_id"), None)
@@ -385,6 +433,18 @@ class AgentHost:
                 output = {"success": False, "reason": "tool_error"}
             trace.append({"kind": "tool", "name": name, "arguments": arguments, "result": {"is_error": bool(result.get("is_error")), "output": output}, "say": "", "ok": output.get("success") is True})
             return output
+
+        if item["kind"] == "invite":
+            # Joining moves them to the TV room; declining moves them to the room they prefer.
+            if decision == "accept":
+                moved = await call("move_person", {"person_id": person, "room": "tv_room"})
+                speech = f"{item['name']} joined {item['speaker_name']} in the TV room." if moved.get("success") else f"{item['name']} could not join: {moved.get('reason', 'unknown reason')}."
+            else:
+                room = item["alternatives"][0]
+                moved = await call("move_person", {"person_id": person, "room": room})
+                speech = f"{item['name']} is staying in the {room.replace('_', ' ')}." if moved.get("success") else f"{item['name']} could not move: {moved.get('reason', 'unknown reason')}."
+            self._drop_approval(key, proposal_id)
+            return {"success": bool(moved.get("success")), "speech": speech, "trace": trace}
 
         if decision == "decline":
             name = "decline_ride_booking" if item["kind"] == "ride" else "decline_order"
@@ -412,7 +472,7 @@ class AgentHost:
         if not booked.get("success"):
             return {"success": False, "speech": f"The ride was not booked: {booked.get('reason', 'unknown reason')}.", "trace": trace}
         self._drop_approval(key, proposal_id)
-        booking = {"provider": item["provider_name"], "name": item["name"], "destination": item["destination"], "pickup_seconds": booked.get("pickup_seconds_demo"), "price_inr": item.get("price_inr"), "reference": booked.get("confirmed_booking_id")}
+        booking = {"provider": item["provider_name"], "name": item["name"], "destination": item["destination"], "pickup_seconds": booked.get("pickup_seconds_demo"), "price_inr": item.get("price_inr"), "reference": booked.get("confirmed_booking_id"), "request_id": item.get("request_id")}
         self._pending.setdefault(key, {})["booking"] = booking
         self._scene = apply_tool_result(self._scene, "book_ride", {"person_id": person, "proposal_id": proposal_id}, booked)
         speech = f"Booked. A simulated {item['provider_name']} ride for {item['name']} to {item['destination']}. Driver arrives in about {booking['pickup_seconds']} seconds."
@@ -523,6 +583,7 @@ class AgentHost:
         text: str,
         active_speaker_id: str | None = None,
         session_id: str | None = None,
+        request_id: str | None = None,
     ) -> dict[str, Any]:
         try:
             mcp_tools = await self._gateway.list_tools()
@@ -565,13 +626,13 @@ class AgentHost:
         awaiting = "awaiting" in pending
         if (awaiting and is_preference_answer(text)) or not self.llm_configured():
             scripted = await self._finish_turn(await self._scripted_turn(text, active_speaker_id, session_id, trace), text, active_speaker_id, session_id)
-            self._track_ride_confirmation(session_id, scripted["trace"])
+            await self._after_turn(session_id, request_id, active_speaker_id, scripted["trace"])
             return scripted
 
         history_key = self._history_key(session_id, active_speaker_id)
         history = list(self._session_history.get(history_key, []))
         model_text = household_context(text, active_speaker_id, waiting, _activity_lines(self._scene) + ([presence_note] if presence_note else []))
-        progress_key = session_id or "local"
+        progress_key = _progress_key(session_id, request_id)
         progress = {"busy": True, "current": "Thinking about what you asked…", "steps": []}
         self._progress[progress_key] = progress
         # Only the tools this request needs are sent: fewer tokens per call, so the per-minute limit is hit less.
@@ -592,7 +653,7 @@ class AgentHost:
                 if not event["result"].get("is_error"):
                     self._scene = apply_tool_result(self._scene, event["name"], event.get("arguments", {}), event["result"].get("output"))
             result = await self._finish_turn(result, text, active_speaker_id, session_id)
-            self._track_ride_confirmation(session_id, result["trace"])
+            await self._after_turn(session_id, request_id, active_speaker_id, result["trace"])
             self._remember_exchange(history_key, text, result["speech"])
             return result
         except ValueError as error:
@@ -695,7 +756,7 @@ class AgentHost:
                 )
 
         return {
-            "speech": "I reached the tool-call limit before completing that request.",
+            "speech": _limit_reply(trace),
             "trace": trace,
         }
 
@@ -788,7 +849,7 @@ class AgentHost:
             messages.append({"role": "user", "content": tool_results})
 
         return {
-            "speech": "I reached the tool-call limit before completing that request.",
+            "speech": _limit_reply(trace),
             "trace": trace,
         }
 
@@ -833,6 +894,10 @@ class AgentHost:
         try:
             return await asyncio.to_thread(self._run_llm_loop, model_text, mcp_tools, speaker, trace, history, progress)
         except Exception as error:
+            if "tool_use_failed" in str(error):
+                # The model wrote a malformed tool call, which the provider rejects. One fresh attempt usually works.
+                trace[:] = base
+                return await asyncio.to_thread(self._run_llm_loop, model_text, mcp_tools, speaker, trace, history, progress)
             if not _is_rate_limit(error):
                 raise
             trace[:] = base

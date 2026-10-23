@@ -93,26 +93,25 @@
       </div>
     </div>
 
+    <!-- Template only: each request gets its own copy of this popup, so two requests never share one. -->
     <div id="thinking-card" class="thinking-card" role="status" aria-live="polite" hidden>
       <header class="thinking-head">
         <b>Verity is working</b>
-        <button id="thinking-close" class="close" type="button" aria-label="Hide">×</button>
+        <button id="thinking-close" class="close task-close" type="button" aria-label="Hide">×</button>
       </header>
       <p id="thinking-now" class="thinking-now"></p>
       <ol id="thinking-steps" class="thinking-steps"></ol>
-      <!-- Everything Verity needs from the person for this request appears here, in this one popup. -->
-      <div id="question-block" class="task-block" hidden>
-        <p id="question-text" class="task-text"></p>
-        <div id="question-choices" class="task-actions"></div>
+      <div id="question-block" class="task-block question-block" hidden>
+        <p id="question-text" class="task-text question-text"></p>
+        <div id="question-choices" class="task-actions question-choices"></div>
         <p class="task-note">Or type your answer in the box below.</p>
       </div>
-      <!-- One card per ride or order waiting for a decision. Each card has its own Accept and Decline. -->
       <div id="approval-list" class="approval-list" hidden></div>
-      <div id="booking-block" class="task-block" hidden>
-        <p id="booking-text" class="task-text"></p>
+      <div id="booking-block" class="task-block booking-block" hidden>
+        <p id="booking-text" class="task-text booking-text"></p>
         <p class="task-note">Simulated booking. No real ride is booked.</p>
         <div class="task-actions">
-          <button id="booking-done" class="primary" type="button">Close</button>
+          <button id="booking-done" class="primary booking-done" type="button">Close</button>
         </div>
       </div>
     </div>

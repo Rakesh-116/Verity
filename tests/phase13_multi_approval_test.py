@@ -40,6 +40,12 @@ class FakeGateway:
         if name == "create_order_proposal":
             self.counter += 1
             return {"is_error": False, "output": {"success": True, "proposal_id": f"proposal.delivery_order.{self.counter}", "person_id": person, "provider": arguments["provider"], "items": arguments["items"]}}
+        if name == "get_household":
+            return {"is_error": False, "output": {"members": [{"person_id": "papa", "presence": "home"}, {"person_id": "amma", "presence": "home"}, {"person_id": "son", "presence": "home"}, {"person_id": "housebot", "presence": "home"}]}}
+        if name == "get_home_state":
+            return {"is_error": False, "output": {"tv_room": {"occupants": ["amma", "papa"]}, "bedroom": {"occupants": ["son"]}}}
+        if name == "move_person":
+            return {"is_error": False, "output": {"success": True, "person_id": person, "confirmed_room": arguments["room"]}}
         if name == "compare_item_prices":
             return {"is_error": False, "output": {"person_id": person, "item": arguments["item"], "quotes": [{"provider": "dashmart", "price_inr": 40, "item": arguments["item"]}, {"provider": "quickmart", "price_inr": 45, "item": arguments["item"]}]}}
         if name == "book_ride":
@@ -107,8 +113,30 @@ def test_ordering_groceries_waits_for_approval_then_places_the_order() -> None:
     assert host.progress(session)["approvals"] == []
 
 
+def test_watching_tv_asks_others_at_home_to_join_and_declining_sends_them_to_their_room() -> None:
+    gateway = FakeGateway()
+    host = _host(gateway)
+    session = "watch-1"
+    asyncio.run(host._offer_watch_invites(session, "request-7", "papa"))
+    invites = [item for item in host.progress(session)["approvals"] if item["kind"] == "invite"]
+    # Amma is already in the TV room and Papa is the one watching, so only Son is asked.
+    assert [item["person_id"] for item in invites] == ["son"], invites
+    assert invites[0]["request_id"] == "request-7" and invites[0]["alternatives"][0] == "bedroom"
+
+    joined = asyncio.run(host.decide(session, invites[0]["proposal_id"], "accept"))
+    assert joined["success"] and "joined Papa in the TV room" in joined["speech"], joined
+    assert ("move_person", {"person_id": "son", "room": "tv_room"}) in gateway.calls
+
+    asyncio.run(host._offer_watch_invites(session, "request-8", "papa"))
+    declined_item = next(item for item in host.progress(session)["approvals"] if item["kind"] == "invite")
+    declined = asyncio.run(host.decide(session, declined_item["proposal_id"], "decline"))
+    assert declined["success"] and "staying in the bedroom" in declined["speech"], declined
+    assert ("move_person", {"person_id": "son", "room": "bedroom"}) in gateway.calls
+
+
 if __name__ == "__main__":
     test_two_rides_wait_as_two_approvals_and_each_is_decided_alone()
     test_a_decision_for_a_proposal_that_is_not_waiting_is_refused()
     test_ordering_groceries_waits_for_approval_then_places_the_order()
+    test_watching_tv_asks_others_at_home_to_join_and_declining_sends_them_to_their_room()
     print("Phase 13 multi-approval and ordering verification passed.")

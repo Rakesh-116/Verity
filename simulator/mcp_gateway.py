@@ -28,6 +28,8 @@ class MCPGateway:
     async def call_tool(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         """Read-only tools are retried on a transport failure with a short backoff. Anything that changes
         state is never retried here: the first attempt may already have happened."""
+        # A model sometimes sends an empty argument name; it is not a real argument, so it is dropped.
+        arguments = {key: value for key, value in arguments.items() if key}
         if not name.startswith(READ_ONLY_PREFIXES):
             return await self._call_once(name, arguments)
         delays = [0.2, 0.5]
