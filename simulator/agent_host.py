@@ -339,9 +339,13 @@ class AgentHost:
                 "trace": [{"kind": "configuration_error", "detail": str(error)}],
             }
         except Exception as error:
+            # Show the real cause: the page used to hide it behind a generic sentence.
+            import traceback
+
+            traceback.print_exc()
             return {
-                "speech": "The simulator could not complete that request.",
-                "trace": [{"kind": "agent_error", "detail": str(error)}],
+                "speech": f"The simulator could not complete that request ({type(error).__name__}: {error}).",
+                "trace": [{"kind": "agent_error", "detail": f"{type(error).__name__}: {error}"}],
             }
         finally:
             progress["busy"] = False
