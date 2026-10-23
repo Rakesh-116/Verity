@@ -37,3 +37,7 @@ def append_action_log(person_id: str | None, domain: str, description: str, resu
         }
     )
     save_json("memory.json", memory)
+    # Local import: the reliability module imports this one.
+    from services.reliability import append_audit
+
+    append_audit({"domain": domain, "person_id": person_id, "description": description, "result": result})

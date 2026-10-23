@@ -34,6 +34,14 @@ def _person_known(person_id: str) -> bool:
     return person_id in load_json("memory.json")["people"]
 
 
+def _transition(hedge: dict[str, Any], target: str) -> None:
+    """Move a hedge to a new status only along an allowed transition; anything else is a bug and stops loudly."""
+    from services.reliability import HEDGE_TRANSITIONS, check_transition
+
+    check_transition(HEDGE_TRANSITIONS, hedge["status"], target)
+    hedge["status"] = target
+
+
 def _ride_state(ride: dict[str, Any], config: dict[str, Any], now: float) -> dict[str, Any]:
     """Compute one ride's state from elapsed simulated time; a user cancel always wins."""
     if ride.get("user_cancelled"):
@@ -100,7 +108,7 @@ def _commit(hedge: dict[str, Any], ride: dict[str, Any], scenario: dict[str, Any
     config = scenario["platforms"][ride["platform"]]
     view = _ride_state(ride, config, now)
     hedge["committed_ride_id"] = ride["ride_id"]
-    hedge["status"] = "committed"
+    _transition(hedge, "committed")
     hedge["events"].append({"event": "committed", "ride_id": ride["ride_id"], "driver": view["driver"], "eta_minutes": view["eta_minutes"], "fare_inr": view["fare_inr"]})
     hedge["explanation"].append(reason)
 
@@ -217,7 +225,7 @@ def _advance(hedge: dict[str, Any], scenario: dict[str, Any], now: float) -> Non
                 _advance(hedge, scenario, now)
                 return
         if now - hedge["round_started_at"] >= policy["request_timeout_seconds"]:
-            hedge["status"] = "failed"
+            _transition(hedge, "failed")
             hedge["failure_reason"] = "no_driver_accepted"
             hedge["explanation"].append("No platform accepted within the request timeout. Nothing was committed or cancelled.")
             hedge["events"].append({"event": "failed", "reason": "no_driver_accepted"})
@@ -227,7 +235,7 @@ def _advance(hedge: dict[str, Any], scenario: dict[str, Any], now: float) -> Non
     config = scenario["platforms"][committed["platform"]]
     view = _ride_state(committed, config, now)
     if view["state"] != "cancelled" or view["by"] != "driver":
-        hedge["status"] = "committed"
+        _transition(hedge, "committed")
         return
 
     # The fallback is judged as of the moment the driver cancelled.
@@ -239,14 +247,14 @@ def _advance(hedge: dict[str, Any], scenario: dict[str, Any], now: float) -> Non
     if fallback:
         ride = min(fallback, key=lambda r: _ride_state(r, scenario["platforms"][r["platform"]], cancel_at)["eta_minutes"])
         _commit(hedge, ride, scenario, cancel_at, f"Fell back to {scenario['platforms'][ride['platform']]['display_name']}, which was still accepted.")
-        hedge["status"] = "committed"
+        _transition(hedge, "committed")
     elif hedge["round"] < policy["max_rounds"]:
         hedge["round"] += 1
-        hedge["status"] = "searching"
+        _transition(hedge, "searching")
         _request_round(hedge, scenario, cancel_at)
         hedge["explanation"].append(f"No other accepted ride was left. Asked both apps again (round {hedge['round']}).")
     else:
-        hedge["status"] = "failed"
+        _transition(hedge, "failed")
         hedge["failure_reason"] = "all_drivers_cancelled"
         hedge["explanation"].append("Every driver cancelled and the retry limit was reached. Nothing else was booked.")
         hedge["events"].append({"event": "failed", "reason": "all_drivers_cancelled"})
@@ -376,7 +384,7 @@ def cancel_ride_hedge(person_id: str, hedge_id: str) -> dict[str, Any]:
         ride["user_cancelled"] = True
         hedge["fees_inr"] += fee
         hedge["events"].append({"event": "cancelled_by_user", "ride_id": ride["ride_id"], "fee_inr": fee})
-    hedge["status"] = "cancelled"
+    _transition(hedge, "cancelled")
     hedge["committed_ride_id"] = None
     hedge["failure_reason"] = "cancelled_by_user"
     charged = hedge["fees_inr"] - fee_before

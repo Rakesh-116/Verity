@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Any
+
+READ_ONLY_PREFIXES = ("get_", "list_", "compare_", "find_", "resolve_", "verify_")
 
 from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
@@ -23,6 +26,21 @@ class MCPGateway:
                 return [tool.model_dump(by_alias=True) for tool in result.tools]
 
     async def call_tool(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+        """Read-only tools are retried on a transport failure with a short backoff. Anything that changes
+        state is never retried here: the first attempt may already have happened."""
+        if not name.startswith(READ_ONLY_PREFIXES):
+            return await self._call_once(name, arguments)
+        delays = [0.2, 0.5]
+        for attempt in range(len(delays) + 1):
+            try:
+                return await self._call_once(name, arguments)
+            except Exception:
+                if attempt == len(delays):
+                    raise
+                await asyncio.sleep(delays[attempt])
+        raise RuntimeError("unreachable")
+
+    async def _call_once(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         async with streamablehttp_client(self._url) as (read, write, _):
             async with ClientSession(read, write) as session:
                 await session.initialize()

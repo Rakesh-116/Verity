@@ -177,10 +177,11 @@ async function processNextTurn() {
 
 async function ask(rawText, personId = speaker.value) {
   const text = rawText.replace(/^alexa[, ]*/i, "").trim(); if (!text) return;
-  addMessage("user", PEOPLE[personId].label, text, personId); startProgress(); characters[personId].status = "busy"; renderCharacters(); status.textContent = "Agent is choosing tools…";
+  renderQuestion(null); addMessage("user", PEOPLE[personId].label, text, personId); startProgress(); characters[personId].status = "busy"; renderCharacters(); status.textContent = "Agent is choosing tools…";
   try {
     const response = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ session_id: sessionId, person_id: personId, text }) });
     const result = await response.json(); if (!response.ok) throw new Error(result.error || "Request failed");
+    renderQuestion(result.question || null);
     const failed = result.trace.some((event) => event.kind === "tool" && event.result.output && event.result.output.success === false);
     const spokenResponse = plainSpeech(result.speech);
     characters[personId].status = failed ? "alert" : "idle"; renderCharacters(); addMessage("assistant", "Verity", spokenResponse); document.querySelector("#reply").textContent = spokenResponse; trace.textContent = JSON.stringify(result.trace, null, 2); renderSteps(result.trace); traceStatus.textContent = `${result.trace.length} event${result.trace.length === 1 ? "" : "s"}`; speak(spokenResponse); await refreshState();
@@ -327,6 +328,20 @@ document.querySelector("#sim-time").addEventListener("change", async (event) => 
 // Live status line: polls what Verity is doing right now, in plain words.
 let progressTimer = null;
 const IDLE_AGENT_TEXT = "Ready. Ask for something, or try the time tick.";
+// A question from Verity is answered with buttons under its message. Each button sends the answer as a message.
+function renderQuestion(question) {
+  const box = document.querySelector("#question-actions");
+  box.replaceChildren();
+  if (!question) { box.hidden = true; return; }
+  question.options.forEach((option, index) => {
+    const button = el("button", index === 0 ? "primary" : "secondary", option === "cheapest" ? "Cheapest" : option === "fastest" ? "Fastest" : option);
+    button.type = "button";
+    button.addEventListener("click", () => { box.hidden = true; enqueueAsk(option, speaker.value); });
+    box.append(button);
+  });
+  box.hidden = false;
+}
+
 function showThinking() {
   document.querySelector("#thinking-card").hidden = false;
   document.querySelector("#thinking-steps").replaceChildren();

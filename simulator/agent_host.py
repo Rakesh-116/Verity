@@ -17,7 +17,9 @@ from groq import Groq
 from openai import OpenAI
 from services.ai.settings import AISettings
 
-from simulator.mcp_gateway import MCPGateway, as_bedrock_tools, as_openai_tools, json_text
+from simulator.mcp_gateway import READ_ONLY_PREFIXES, MCPGateway, as_bedrock_tools, as_openai_tools, json_text
+from services.claims import check_claims
+from services.reliability import PERMISSION, UNKNOWN, classify_error
 from simulator.narration import describe_call, describe_doing
 from services.household import authorize, is_action_request, resolve_mentions, roster as household_roster
 from services.scene import advance_scene, apply_tool_result, scene_summary
@@ -51,6 +53,10 @@ def household_context(text: str, speaker: str | None, waiting: bool = False) -> 
 
 def _tool_events(result: dict[str, Any]) -> list[dict[str, Any]]:
     return [event for event in result.get("trace", []) if event.get("kind") == "tool"]
+
+
+# Bounded execution: a model turn stops after this many seconds, whatever else is happening.
+RUN_TIME_LIMIT_S = 60
 
 
 class AgentHost:
@@ -89,6 +95,57 @@ class AgentHost:
         if result["is_error"]:
             raise RuntimeError(f"list_ride_hedges failed: {result['output']}")
         return result["output"]
+
+    async def _finish_turn(self, result: dict[str, Any], text: str, speaker: str | None, session_id: str | None = None) -> dict[str, Any]:
+        """The last step of every turn: classify each failure, check tool outputs are structured,
+        check the reply's claims, and escalate what a person must decide."""
+        trace = result.get("trace", [])
+        reasons: list[str] = []
+        for event in trace:
+            if event.get("kind") != "tool":
+                continue
+            output = event["result"].get("output")
+            reason = None
+            if event["result"].get("is_error"):
+                reason = "tool_error"
+            elif not event["name"].startswith(READ_ONLY_PREFIXES) and (not isinstance(output, dict) or "success" not in output):
+                reason = "invalid_output"  # an action must return a structured confirmation, never a bare text
+            elif isinstance(output, dict) and output.get("success") is False:
+                reason = output.get("reason") or "unknown_refusal"
+            if reason:
+                event["ok"] = False
+                event["reason"] = reason
+                event["error_class"] = classify_error(reason)
+                if event["error_class"] in {PERMISSION, UNKNOWN}:
+                    reasons.append(f"{event['name']}: {reason}")
+        # A question the app needs answered is shown as buttons in the reply, and the answer is routed back here.
+        for event in trace:
+            if event.get("kind") == "tool" and event["name"] == "compare_ride_options":
+                output = event["result"].get("output")
+                if isinstance(output, dict) and output.get("needs_preference"):
+                    result["question"] = {"key": "ride_priority", "text": output["needs_preference"]["question"], "options": output["needs_preference"]["options"], "person_id": output.get("person_id")}
+                    self._pending.setdefault(session_id or "local", {})["awaiting"] = {"person_id": output.get("person_id"), "ride_text": text}
+        checked = check_claims(result.get("speech", ""), trace)
+        if checked["overridden"]:
+            result["speech"] = checked["speech"]
+            result["claim_check"] = {"overridden": True, "claim": checked["claim"]}
+            reasons.append(f"unconfirmed claim: {checked['claim']}")
+        if any(event.get("kind") == "no_tool_call" for event in trace):
+            reasons.append("no tool call for an action request")
+        if result.get("speech", "").startswith("I reached the tool-call limit") or result.get("speech", "").startswith("I ran out of time"):
+            reasons.append("run limit reached")
+        if reasons:
+            try:
+                case = await self._gateway.call_tool("open_escalation", {
+                    "person_id": speaker,
+                    "reason": "; ".join(reasons),
+                    "context": {"request": text, "speech": result.get("speech", ""), "trace": [e.get("name", e.get("kind")) for e in trace]},
+                })
+                if not case["is_error"]:
+                    result["escalation"] = case["output"].get("id")
+            except Exception:
+                result["escalation"] = None  # the reply still goes out; the failure is in the trace
+        return result
 
     async def cancel_ride(self, person_id: str, hedge_id: str) -> dict[str, Any]:
         """Cancel a ride request the person asked to cancel; the result is what MCP confirmed."""
@@ -245,7 +302,7 @@ class AgentHost:
         # A plain yes or no answers the ride on screen. The app handles it, the same way with or without a model.
         awaiting = "awaiting" in pending
         if (waiting and is_confirmation(text)) or (awaiting and is_preference_answer(text)) or not self.llm_configured():
-            return await self._scripted_turn(text, active_speaker_id, session_id, trace)
+            return await self._finish_turn(await self._scripted_turn(text, active_speaker_id, session_id, trace), text, active_speaker_id, session_id)
 
         history_key = self._history_key(session_id, active_speaker_id)
         history = list(self._session_history.get(history_key, []))
@@ -272,6 +329,7 @@ class AgentHost:
             for event in _tool_events(result):
                 if not event["result"].get("is_error"):
                     self._scene = apply_tool_result(self._scene, event["name"], event.get("arguments", {}), event["result"].get("output"))
+            result = await self._finish_turn(result, text, active_speaker_id, session_id)
             self._track_ride_confirmation(session_id, result["trace"])
             self._remember_exchange(history_key, text, result["speech"])
             return result
@@ -321,7 +379,10 @@ class AgentHost:
         ]
         trace.append({"kind": "user", "text": text})
 
+        started_at = time.time()
         for _ in range(6):
+            if time.time() - started_at > RUN_TIME_LIMIT_S:
+                break
             response = client.chat.completions.create(
                 model=model,
                 messages=messages,
@@ -397,7 +458,10 @@ class AgentHost:
         tool_names = {tool["name"] for tool in mcp_tools}
         trace.append({"kind": "user", "text": text})
 
+        started_at = time.time()
         for _ in range(6):
+            if time.time() - started_at > RUN_TIME_LIMIT_S:
+                break
             response = client.converse(
                 modelId=settings.bedrock_model_id,
                 system=[{"text": system_prompt}],

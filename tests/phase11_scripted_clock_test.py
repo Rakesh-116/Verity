@@ -150,6 +150,7 @@ def test_an_unset_ride_preference_is_asked_once_then_saved() -> None:
         await _set_priority(host, "son", "")
         asked = await host.run_turn("Book me a ride to the market", "son", "s5")
         assert "cheapest one or the fastest one" in asked["speech"], asked["speech"]
+        assert asked["question"]["options"] == ["cheapest", "fastest"] and asked["question"]["key"] == "ride_priority", asked.get("question")
         answered = await host.run_turn("fastest", "son", "s5")
         assert answered["speech"].startswith("I'll arrange a simulated"), answered["speech"]
         saved = await host._gateway.call_tool("get_person_context", {"person_id": "son"})

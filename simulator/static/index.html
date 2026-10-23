@@ -43,6 +43,12 @@
 
       <div id="agent-now" class="now-strip" role="status" aria-live="polite">Ready. Ask for something, or say who should do what.</div>
       <div id="reply" class="reply" aria-live="polite"></div>
+      <div id="question-actions" class="reply-actions" hidden></div>
+      <div id="reply-actions" class="reply-actions" hidden>
+        <span class="reply-actions-note">Approval needed:</span>
+        <button id="accept-ride" class="primary" type="button">Accept</button>
+        <button id="reject-ride" class="secondary" type="button">Reject</button>
+      </div>
 
       <form id="chat-form" class="composer">
         <label class="sr-only" for="speaker">Speaking as</label>
