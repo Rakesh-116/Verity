@@ -142,6 +142,12 @@ def _limit_reply(trace: list[dict[str, Any]]) -> str:
     return "I reached the tool-call limit before finishing." + (f" So far: {done}" if done else "")
 
 
+def answered_by(settings: AISettings) -> str:
+    """Which provider and model produced a reply, so the page can say so for that reply."""
+    models = {"bedrock": settings.bedrock_model_id, "openai": settings.openai_model, "groq": settings.groq_model, "ollama": settings.ollama_model}
+    return f"{settings.provider} · {models.get(settings.provider, '')}".rstrip(" ·")
+
+
 def _tool_events(result: dict[str, Any]) -> list[dict[str, Any]]:
     return [event for event in result.get("trace", []) if event.get("kind") == "tool"]
 
@@ -687,6 +693,7 @@ class AgentHost:
         awaiting = "awaiting" in pending
         if (awaiting and is_preference_answer(text)) or not self.llm_configured():
             scripted = await self._finish_turn(await self._scripted_turn(text, active_speaker_id, session_id, trace), text, active_speaker_id, session_id)
+            scripted["answered_by"] = "scripted demo · no model"
             await self._after_turn(session_id, request_id, active_speaker_id, scripted["trace"])
             return scripted
 
@@ -714,6 +721,7 @@ class AgentHost:
                 if not event["result"].get("is_error"):
                     self._scene = apply_tool_result(self._scene, event["name"], event.get("arguments", {}), event["result"].get("output"))
             result = await self._finish_turn(result, text, active_speaker_id, session_id)
+            result["answered_by"] = self._last_fallback and f"fallback · {self._last_fallback}" or answered_by(AISettings.from_environment())
             await self._after_turn(session_id, request_id, active_speaker_id, result["trace"])
             self._remember_exchange(history_key, text, result["speech"])
             return result

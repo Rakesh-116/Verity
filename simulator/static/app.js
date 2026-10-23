@@ -213,7 +213,7 @@ async function ask(rawText, personId = speaker.value, requestId = crypto.randomU
     const options = CONFIRMATION_QUESTION.test(question || "") ? ["Yes", "No"] : [];
     renderQuestion(result.question || (question ? { text: question, options } : null), requestId);
     const replyText = result.question || !question ? spokenResponse : statement;
-    characters[personId].status = failed ? "alert" : "idle"; renderCharacters(); addMessage("assistant", `Verity → ${PEOPLE[personId].label}`, spokenResponse, personId); document.querySelector("#reply").textContent = replyText; trace.textContent = JSON.stringify(result.trace, null, 2); renderSteps(result.trace); traceStatus.textContent = `${result.trace.length} event${result.trace.length === 1 ? "" : "s"}`; speak(spokenResponse); await refreshState();
+    characters[personId].status = failed ? "alert" : "idle"; renderCharacters(); addMessage("assistant", `Verity → ${PEOPLE[personId].label}`, spokenResponse, personId); document.querySelector("#reply").textContent = replyText; trace.textContent = JSON.stringify(result.trace, null, 2); renderSteps(result.trace); traceStatus.textContent = `${result.trace.length} event${result.trace.length === 1 ? "" : "s"}${result.answered_by ? ` · answered by ${result.answered_by}` : ""}`; speak(spokenResponse); await refreshState();
   } catch (error) { characters[personId].status = "alert"; renderCharacters(); addMessage("assistant", "Verity", "The simulated host could not complete that request."); trace.textContent = String(error); traceStatus.textContent = "Error"; status.textContent = "Error"; }
   finally { stopProgress(requestId); prompt.focus(); }
 }
