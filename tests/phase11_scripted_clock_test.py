@@ -114,6 +114,29 @@ def test_a_ride_proposed_by_the_model_waits_for_a_yes_like_the_scripted_demo() -
     assert host.progress("m1")["pending"] is None
 
 
+def test_yes_while_a_ride_waits_is_answered_by_the_app_even_with_a_model() -> None:
+    """With a model configured, a plain yes still goes to the app while a ride waits. The model is never called for it."""
+    async def scenario() -> None:
+        host = _host()
+        trace = [{"kind": "tool", "name": "create_ride_booking_proposal", "arguments": {"person_id": "amma", "provider": "citycab", "ride_id": "ride.citycab.amma.1", "destination": "market"},
+                  "result": {"is_error": False, "output": {"success": True, "person_id": "amma", "proposal_id": "proposal.ride_booking.nosuch", "quote": {"provider": "citycab", "eta_minutes": 4, "price_inr": 128, "destination": "market"}}}}]
+        host._track_ride_confirmation("m2", trace)
+
+        def must_not_be_called(settings):
+            raise AssertionError("the model was called for a yes that should go to the app")
+
+        previous = os.environ["GROQ_API_KEY"]
+        os.environ["GROQ_API_KEY"] = "test-key"
+        AgentHost._client_for = staticmethod(must_not_be_called)
+        try:
+            reply = await host.run_turn("yes", "amma", "m2")
+        finally:
+            os.environ["GROQ_API_KEY"] = previous
+        assert reply["speech"].startswith("I could not confirm the ride: proposal_not_found"), reply["speech"]
+
+    asyncio.run(scenario())
+
+
 if __name__ == "__main__":
     test_amma_is_away_until_her_time_then_returns_by_the_clock()
     test_scripted_mode_is_reported()
@@ -121,4 +144,5 @@ if __name__ == "__main__":
     test_watch_tv_and_massage_run_as_visible_activities()
     test_unknown_commands_get_the_plain_list_not_a_made_up_action()
     test_a_ride_proposed_by_the_model_waits_for_a_yes_like_the_scripted_demo()
+    test_yes_while_a_ride_waits_is_answered_by_the_app_even_with_a_model()
     print("Phase 11 scripted demo and clock verification passed.")

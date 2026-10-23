@@ -28,6 +28,12 @@ HELP = (
 Call = Callable[[str, dict[str, Any]], Awaitable[dict[str, Any]]]
 
 
+def is_confirmation(text: str) -> bool:
+    """True for a plain yes or no, which answers a ride waiting for confirmation."""
+    stripped = text.strip()
+    return bool(CONFIRM.match(stripped) or CANCEL.match(stripped))
+
+
 def _name(roster: dict[str, dict[str, Any]], person_id: str) -> str:
     return roster.get(person_id, {}).get("display_name", person_id.title())
 

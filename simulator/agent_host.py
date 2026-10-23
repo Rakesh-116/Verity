@@ -20,7 +20,7 @@ from simulator.mcp_gateway import MCPGateway, as_bedrock_tools, as_openai_tools,
 from simulator.narration import describe_call, describe_doing
 from services.household import authorize, is_action_request, resolve_mentions, roster as household_roster
 from services.scene import apply_tool_result, scene_summary
-from simulator.scripted_demo import PROVIDER_NAMES, run_scripted
+from simulator.scripted_demo import PROVIDER_NAMES, is_confirmation, run_scripted
 
 
 SKILL_PATH = PROJECT_DIRECTORY / "skills" / "verity" / "SKILL.md"
@@ -32,12 +32,14 @@ NO_TOOL_NOTE = (
 )
 
 
-def household_context(text: str, speaker: str | None) -> str:
-    """Per-turn context the model cannot recall by itself: IDs, the speaker, and resolved names."""
+def household_context(text: str, speaker: str | None, waiting: bool = False) -> str:
+    """Per-turn context the model cannot recall by itself: IDs, the speaker, resolved names, and a ride awaiting a yes."""
     lines = [f"{pid}={member['display_name']} ({member['role']})" for pid, member in household_roster().items()]
     parts = [f"[Household IDs: {', '.join(lines)}.]"]
     if speaker:
         parts.append(f"[Speaker person_id: {speaker}.]")
+    if waiting:
+        parts.append("[A ride is waiting for the person's confirmation on screen. Do not ask for approval in text; the app handles the yes or no.]")
     for mention in resolve_mentions(text):
         parts.append(
             f"['{mention['spoken']}' in the request means person_id {mention['person_id']}. "
@@ -236,12 +238,15 @@ class AgentHost:
             trace.append({"kind": "authorization", "reason": auth["reason"]})
             return {"speech": auth["speech"], "trace": trace}
 
-        if not self.llm_configured():
+        pending = self._pending.get(session_id or "local", {})
+        waiting = "proposal_id" in pending
+        # A plain yes or no answers the ride on screen. The app handles it, the same way with or without a model.
+        if (waiting and is_confirmation(text)) or not self.llm_configured():
             return await self._scripted_turn(text, active_speaker_id, session_id, trace)
 
         history_key = self._history_key(session_id, active_speaker_id)
         history = list(self._session_history.get(history_key, []))
-        model_text = household_context(text, active_speaker_id)
+        model_text = household_context(text, active_speaker_id, waiting)
         progress_key = session_id or "local"
         progress = {"busy": True, "current": "Thinking about what you asked…", "steps": []}
         self._progress[progress_key] = progress
