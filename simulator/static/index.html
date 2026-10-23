@@ -3,71 +3,99 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Verity Household Simulator</title>
+    <title>Verity House · Simulated Alexa+</title>
     <link rel="icon" href="data:," />
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <main>
-      <header class="topbar">
-        <div><p class="eyebrow">SIMULATED ALEXA+ EXPERIENCE</p><h1>VERITY HOUSE</h1><p id="sim-clock">SIM TIME 06:00</p></div>
-        <div class="mode-switch" aria-label="Simulator mode">
-          <button class="mode active" data-mode="manual">Manual</button>
-          <button class="mode" data-mode="demo">Demo</button>
-        </div>
-      </header>
+    <header class="topbar">
+      <div class="brand">
+        <p class="eyebrow">Simulated Alexa+ experience</p>
+        <h1>Verity House</h1>
+      </div>
+      <div id="household" class="household" aria-label="Who is home"></div>
+      <div class="debug-only mode-switch" aria-label="Simulator mode">
+        <button class="mode active" data-mode="manual">Manual</button>
+        <button class="mode" data-mode="demo">Demo</button>
+      </div>
+      <p id="sim-clock" class="debug-only">SIM TIME 06:00</p>
+      <button id="ride-open" class="ride-open" type="button" hidden>Ride</button>
+    </header>
 
-      <section class="house-shell" aria-label="Verity household floor plan">
-        <div class="house" id="house">
+    <main class="home">
+      <section class="house-stage" aria-label="Household">
+        <div class="house-shell">
           <canvas id="pixel-house" width="512" height="352" aria-label="Animated pixel-art Verity household"></canvas>
-          <div class="device-row device-living" data-room="living_room"></div>
-          <div class="device-row device-kitchen" data-room="kitchen"></div>
-          <div class="device-row device-bedroom" data-room="bedroom"></div>
-          <div class="device-row device-tv" data-room="tv_room"></div>
-          <div id="robot-status" class="robot-status">HOUSEBOT: LOADING</div>
-          <div id="proactive-status" class="proactive-status">CHECKING HOMEâ€¦</div>
+          <div class="device-row device-living debug-only" data-room="living_room"></div>
+          <div class="device-row device-kitchen debug-only" data-room="kitchen"></div>
+          <div class="device-row device-bedroom debug-only" data-room="bedroom"></div>
+          <div class="device-row device-tv debug-only" data-room="tv_room"></div>
+          <div id="robot-status" class="robot-status debug-only">HOUSEBOT: LOADING</div>
+          <div id="proactive-status" class="proactive-status debug-only">CHECKING HOME…</div>
         </div>
-        <aside class="event-panel">
-          <div class="panel-heading"><h2>Live activity</h2><span id="status">Loading state…</span></div>
-
-          <section class="activity-section ride-desk" aria-labelledby="ride-heading">
-            <div class="section-heading"><h3 id="ride-heading">Ride requests</h3><span id="ride-count">None yet</span></div>
-            <div id="rides" class="rides" aria-live="polite">
-              <p class="empty-hint">No ride requests yet. Try “Get me a ride to the office.”</p>
-            </div>
-          </section>
-
-          <section class="activity-section agent-status" aria-label="What Verity is doing">
-            <span class="avatar verity-mark" aria-hidden="true">V</span>
-            <div class="agent-line"><b>Verity</b><span id="agent-now">Ready. Ask for something, or try the time tick.</span></div>
-          </section>
-
-          <section class="activity-section conversation-section" aria-labelledby="conversation-heading">
-            <h3 id="conversation-heading">Conversation</h3>
-            <div id="conversation" class="conversation" role="log" aria-live="polite"></div>
-          </section>
-
-          <section class="activity-section steps-section" aria-labelledby="steps-heading">
-            <div class="section-heading"><h3 id="steps-heading">What Verity did</h3><span id="trace-status">Waiting</span></div>
-            <ol id="steps" class="steps"><li class="muted">Steps appear here after each request.</li></ol>
-            <details class="technical">
-              <summary>Technical details (raw tool results)</summary>
-              <pre id="trace">Waiting for a Verity turn.</pre>
-            </details>
-          </section>
-        </aside>
+        <div class="echo" title="Simulated Alexa+ device in the living room">
+          <span class="echo-ring" aria-hidden="true"></span>
+          <span class="echo-label">Simulated Alexa+</span>
+        </div>
       </section>
 
-      <section class="controls">
-        <form id="chat-form">
-          <div class="selector"><label for="speaker">Speaking as</label><select id="speaker"><option value="son">Son</option><option value="amma">Amma</option><option value="papa">Papa</option><option value="sister">Sister</option></select></div>
-          <label class="prompt-label" for="prompt">Instruction</label>
-          <div class="composer"><input id="prompt" autocomplete="off" placeholder="Ask Verity something…" /><button id="mic" type="button" title="Browser speech recognition">🎙</button><button id="send" type="submit">Send</button><button id="tick" type="button" title="Send a simulated time-of-day context event">Simulate Mon 10:15 at PG</button></div>
-          <p class="notice">Voice is optional. This local simulator uses a generic browser voice, never an Alexa voice imitation.</p>
-        </form>
-        <div class="legend"><span><i class="dot idle"></i>Idle</span><span><i class="dot walking"></i>Walking</span><span><i class="dot busy"></i>Working</span><span><i class="dot away"></i>Away</span><span><i class="dot alert"></i>Action failed</span></div>
-      </section>
+      <div id="agent-now" class="now-strip" role="status" aria-live="polite">Ready. Ask for something, or say who should do what.</div>
+      <div id="reply" class="reply" aria-live="polite"></div>
+
+      <form id="chat-form" class="composer">
+        <label class="sr-only" for="speaker">Speaking as</label>
+        <select id="speaker" aria-label="Speaking as">
+          <option value="son">Son</option>
+          <option value="amma">Amma</option>
+          <option value="papa">Papa</option>
+          <option value="sister">Sister</option>
+        </select>
+        <label class="sr-only" for="prompt">Instruction</label>
+        <input id="prompt" autocomplete="off" placeholder="Try: “Book Amma a ride to the market”" />
+        <button id="mic" type="button" title="Voice input (browser speech recognition)">🎙</button>
+        <button id="send" type="submit">Send</button>
+        <button id="tick" class="debug-only" type="button" title="Developer only: send a simulated time-of-day event">Simulate Mon 10:15 at PG</button>
+      </form>
+      <p class="notice">Voice is optional. Simulated Alexa+ uses a generic browser voice, never an Alexa voice imitation.</p>
+      <span id="status" class="debug-only">Loading state…</span>
+
+      <aside class="event-panel debug-only" aria-label="Developer details">
+        <section class="activity-section conversation-section" aria-labelledby="conversation-heading">
+          <h3 id="conversation-heading">Conversation</h3>
+          <div id="conversation" class="conversation" role="log"></div>
+        </section>
+        <section class="activity-section steps-section" aria-labelledby="steps-heading">
+          <div class="section-heading"><h3 id="steps-heading">What Verity did</h3><span id="trace-status">Waiting</span></div>
+          <ol id="steps" class="steps"><li class="muted">Steps appear here after each request.</li></ol>
+          <details class="technical">
+            <summary>Technical details (raw tool results)</summary>
+            <pre id="trace">Waiting for a Verity turn.</pre>
+          </details>
+        </section>
+      </aside>
     </main>
+
+    <div id="ride-overlay" class="overlay" hidden>
+      <div class="overlay-card" role="dialog" aria-modal="true" aria-labelledby="ride-title">
+        <header class="overlay-head">
+          <h2 id="ride-title">Ride requests</h2>
+          <span id="ride-count"></span>
+          <button id="close-rides" class="close" type="button">Close</button>
+        </header>
+        <div id="rides" class="rides"></div>
+      </div>
+    </div>
+
+    <div id="household-modal" class="overlay" hidden>
+      <div class="overlay-card" role="dialog" aria-modal="true" aria-labelledby="household-title">
+        <header class="overlay-head">
+          <h2 id="household-title">Who is home</h2>
+          <button id="close-household" class="close" type="button">Close</button>
+        </header>
+        <div id="household-list" class="household-list"></div>
+      </div>
+    </div>
+
     <script src="/pixel-house.js"></script>
     <script src="/app.js"></script>
   </body>

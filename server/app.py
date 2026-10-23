@@ -41,6 +41,7 @@ from tools.hedge_tools import (
 )
 from tools.routine_tools import get_routines
 from tools.calendar_tools import find_meeting_deadline
+from tools.household_tools import get_household, resolve_household_names, set_member_presence
 from tools.proactive_tools import (
     approve_energy_saving_proposal,
     create_energy_saving_proposal,
@@ -90,5 +91,8 @@ for tool in (
     cancel_ride_hedge,
     get_routines,
     find_meeting_deadline,
+    get_household,
+    resolve_household_names,
+    set_member_presence,
 ):
     mcp.tool()(tool)

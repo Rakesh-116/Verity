@@ -1,0 +1,10 @@
+{
+  "_note": "Household members for name resolution. Spoken aliases map to the person ID. Simulated household for the demo.",
+  "members": {
+    "amma": {"display_name": "Amma", "role": "mother", "aliases": ["mom", "mum", "mother"]},
+    "papa": {"display_name": "Papa", "role": "father", "aliases": ["dad", "father", "appa"]},
+    "son": {"display_name": "Son", "role": "son", "aliases": []},
+    "sister": {"display_name": "Sister", "role": "daughter", "aliases": []},
+    "housebot": {"display_name": "Housebot", "role": "robot", "aliases": ["robot"]}
+  }
+}

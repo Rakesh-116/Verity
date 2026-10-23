@@ -79,3 +79,41 @@ main { max-width: 1280px; margin: auto; } .topbar { display:flex; justify-conten
 .notice-actions button.danger { border-color: #e0785b; color: #ffd9cc; }
 .notice-actions button:disabled { opacity: .5; cursor: default; }
 .deadline { font-size: 12px; color: #b8cde6; }
+
+
+/* ---- House-first layout (v2). Developer details only show with ?debug=1. ---- */
+body:not(.debug) .debug-only { display: none !important; }
+body { padding: 14px; }
+.topbar { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 6px 4px 14px; }
+.topbar .brand { margin-right: auto; }
+.household { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { font: inherit; font-size: 13px; padding: 5px 12px; border-radius: 999px; border: 1px solid #5b7fa8; background: #13233a; color: #e7f0fb; cursor: pointer; }
+.chip.home { border-color: #6be5b0; color: #d7fff0; }
+.chip.away { border-color: #6d7a8c; color: #9aa6b6; opacity: .75; }
+.ride-open { font: inherit; font-size: 13px; padding: 5px 12px; border-radius: 8px; border: 1px solid #f2c14e; background: #2a2412; color: #ffe9a8; cursor: pointer; }
+.home { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+.house-stage { position: relative; }
+.house-shell { position: relative; display: block !important; max-width: 920px; margin: 0 auto; }
+#pixel-house { width: 100%; height: auto; display: block; image-rendering: pixelated; }
+.echo { position: absolute; left: 14px; top: 14px; display: flex; align-items: center; gap: 8px; font-size: 12px; color: #bff5ec; background: rgba(8, 20, 24, .75); border: 1px solid #2f6f66; border-radius: 999px; padding: 4px 10px; }
+.echo-ring { width: 12px; height: 12px; border-radius: 50%; background: #49e0c6; animation: echo-pulse 2.4s ease-out infinite; }
+@keyframes echo-pulse { 0% { box-shadow: 0 0 0 0 rgba(73, 224, 198, .6); } 70% { box-shadow: 0 0 0 10px rgba(73, 224, 198, 0); } 100% { box-shadow: 0 0 0 0 rgba(73, 224, 198, 0); } }
+.now-strip { font-size: 15px; padding: 10px 14px; border: 1px solid #2c4a6e; border-radius: 10px; background: #0f1b2c; color: #e7f0fb; }
+.reply { min-height: 22px; font-size: 15px; color: #cfe0f3; padding: 0 4px; }
+.composer { display: flex; gap: 8px; align-items: center; }
+.composer select { font: inherit; padding: 8px; border-radius: 8px; background: #13233a; color: #e7f0fb; border: 1px solid #2c4a6e; }
+.composer input { flex: 1; font: inherit; font-size: 15px; padding: 10px 12px; border-radius: 8px; background: #0c1624; color: #e7f0fb; border: 1px solid #2c4a6e; }
+.composer button { font: inherit; padding: 9px 14px; border-radius: 8px; border: 1px solid #5b7fa8; background: #13233a; color: #e7f0fb; cursor: pointer; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.overlay { position: fixed; inset: 0; background: rgba(4, 8, 14, .74); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
+.overlay[hidden] { display: none; }
+.overlay-card { width: min(760px, 94vw); max-height: 86vh; overflow: auto; background: #111c2e; border: 1px solid #2c4a6e; border-radius: 14px; padding: 18px; box-shadow: 0 20px 60px rgba(0, 0, 0, .5); }
+.overlay-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.overlay-head h2 { font-size: 18px; margin: 0; flex: 1; }
+.overlay .close { font: inherit; padding: 6px 12px; border-radius: 8px; border: 1px solid #5b7fa8; background: #13233a; color: #e7f0fb; cursor: pointer; }
+.overlay .ride-card { font-size: 15px; }
+.household-list { display: flex; flex-direction: column; gap: 10px; }
+.household-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid #2c4a6e; border-radius: 10px; background: #0f1b2c; }
+.household-row.away { opacity: .8; }
+.household-text { display: flex; flex-direction: column; gap: 2px; }
+.household-actions button { font: inherit; padding: 6px 12px; border-radius: 8px; border: 1px solid #5b7fa8; background: #13233a; color: #e7f0fb; cursor: pointer; }

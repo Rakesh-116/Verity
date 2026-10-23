@@ -18,9 +18,34 @@ from services.ai.settings import AISettings
 
 from simulator.mcp_gateway import MCPGateway, as_bedrock_tools, as_openai_tools, json_text
 from simulator.narration import describe_call, describe_doing
+from services.household import authorize, is_action_request, resolve_mentions, roster as household_roster
 
 
 SKILL_PATH = PROJECT_DIRECTORY / "skills" / "verity" / "SKILL.md"
+
+
+NO_TOOL_NOTE = (
+    "\n[Simulator note: this is an action request. You must call the matching tool now. "
+    "Do not answer without a tool call.]"
+)
+
+
+def household_context(text: str, speaker: str | None) -> str:
+    """Per-turn context the model cannot recall by itself: IDs, the speaker, and resolved names."""
+    lines = [f"{pid}={member['display_name']} ({member['role']})" for pid, member in household_roster().items()]
+    parts = [f"[Household IDs: {', '.join(lines)}.]"]
+    if speaker:
+        parts.append(f"[Speaker person_id: {speaker}.]")
+    for mention in resolve_mentions(text):
+        parts.append(
+            f"['{mention['spoken']}' in the request means person_id {mention['person_id']}. "
+            "Use that exact ID in tool calls.]"
+        )
+    return text + "\n" + " ".join(parts)
+
+
+def _tool_events(result: dict[str, Any]) -> list[dict[str, Any]]:
+    return [event for event in result.get("trace", []) if event.get("kind") == "tool"]
 
 
 class AgentHost:
@@ -64,12 +89,24 @@ class AgentHost:
         speaker = await self._gateway.call_tool("get_active_speaker", {})
         robot = await self._gateway.call_tool("get_robot_status", {})
         opportunities = await self._gateway.call_tool("get_energy_saving_opportunities", {})
+        household = await self._gateway.call_tool("get_household", {})
         return {
             "home": home["output"],
             "active_speaker": speaker["output"],
             "robot": robot["output"],
             "proactive": opportunities["output"],
+            "household": household["output"],
         }
+
+    async def set_presence(self, person_id: str, presence: str, return_at: str | None) -> dict[str, Any]:
+        """Mark someone home or away through MCP, so the house and the guard agree."""
+        arguments: dict[str, Any] = {"person_id": person_id, "presence": presence}
+        if return_at:
+            arguments["return_at"] = return_at
+        result = await self._gateway.call_tool("set_member_presence", arguments)
+        if result["is_error"]:
+            return {"success": False, "reason": "tool_error"}
+        return result["output"]
 
     async def run_turn(
         self,
@@ -97,15 +134,34 @@ class AgentHost:
                     "trace": trace,
                 }
 
+        # Presence is decided in Python before any model call: an away speaker cannot command the house.
+        auth = authorize(active_speaker_id, text)
+        if not auth["allowed"]:
+            trace.append({"kind": "authorization", "reason": auth["reason"]})
+            return {"speech": auth["speech"], "trace": trace}
+
         history_key = self._history_key(session_id, active_speaker_id)
         history = list(self._session_history.get(history_key, []))
+        model_text = household_context(text, active_speaker_id)
         progress_key = session_id or "local"
         progress = {"busy": True, "current": "Thinking about what you asked…", "steps": []}
         self._progress[progress_key] = progress
         try:
+            base_trace = list(trace)
             result = await asyncio.to_thread(
-                self._run_llm_loop, text, mcp_tools, active_speaker_id, trace, history, progress
+                self._run_llm_loop, model_text, mcp_tools, active_speaker_id, trace, history, progress
             )
+            if not _tool_events(result) and is_action_request(text):
+                # Forced tool use: an action with no tool call gets one retry, then an explicit failure.
+                trace[:] = base_trace
+                result = await asyncio.to_thread(
+                    self._run_llm_loop, model_text + NO_TOOL_NOTE, mcp_tools, active_speaker_id, trace, history, progress
+                )
+                if not _tool_events(result):
+                    result = {
+                        "speech": "I couldn't act on that, so nothing was booked or changed. Please try again.",
+                        "trace": trace + [{"kind": "no_tool_call", "detail": "The model answered without calling a tool, twice."}],
+                    }
             self._remember_exchange(history_key, text, result["speech"])
             return result
         except ValueError as error:

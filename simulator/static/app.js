@@ -1,3 +1,10 @@
+// Developer details (trace, steps, mode and time controls) only show with ?debug=1.
+document.body.classList.toggle("debug", new URLSearchParams(location.search).get("debug") === "1");
+let presenceAway = new Set();
+let householdMembers = [];
+let ridesLoaded = false;
+const seenHedges = new Set();
+
 const ROOMS = {
   living_room: { x: 13, y: 18 }, kitchen: { x: 66, y: 18 },
   bedroom: { x: 13, y: 66 }, tv_room: { x: 66, y: 66 }, away: { x: 48, y: 48 }
@@ -49,6 +56,8 @@ function renderDevices(home, robot, proactive) {
     const holder = document.querySelector(`[data-room="${room}"]`); if (!holder) return;
     holder.textContent = value.devices.map((device) => `${device.type.toUpperCase()} ${device.state.toUpperCase()}`).join("  ");
     (value.occupants || []).forEach((person) => {
+      // Someone marked away is outside, even if the last room record still lists them.
+      if (presenceAway.has(person)) return;
       seenPeople.add(person);
       moveCharacter(person, room);
     });
@@ -71,6 +80,8 @@ function renderDevices(home, robot, proactive) {
 async function refreshState() {
   try {
     const response = await fetch("/api/state"), data = await response.json(); if (!response.ok) throw new Error(data.error);
+    presenceAway = new Set((data.household?.members || []).filter((m) => m.presence === "away").map((m) => m.person_id));
+    renderHousehold(data.household?.members || []);
     renderDevices(data.home, data.robot, data.proactive); speaker.value = data.active_speaker.person_id;
     status.textContent = `Active speaker: ${data.active_speaker.display_name}`;
   } catch (error) { status.textContent = "MCP state unavailable"; }
@@ -153,7 +164,7 @@ async function ask(rawText, personId = speaker.value) {
     const result = await response.json(); if (!response.ok) throw new Error(result.error || "Request failed");
     const failed = result.trace.some((event) => event.kind === "tool" && event.result.output && event.result.output.success === false);
     const spokenResponse = plainSpeech(result.speech);
-    characters[personId].status = failed ? "alert" : "idle"; renderCharacters(); addMessage("assistant", "Verity", spokenResponse); trace.textContent = JSON.stringify(result.trace, null, 2); renderSteps(result.trace); traceStatus.textContent = `${result.trace.length} event${result.trace.length === 1 ? "" : "s"}`; speak(spokenResponse); await refreshState();
+    characters[personId].status = failed ? "alert" : "idle"; renderCharacters(); addMessage("assistant", "Verity", spokenResponse); document.querySelector("#reply").textContent = spokenResponse; trace.textContent = JSON.stringify(result.trace, null, 2); renderSteps(result.trace); traceStatus.textContent = `${result.trace.length} event${result.trace.length === 1 ? "" : "s"}`; speak(spokenResponse); await refreshState();
   } catch (error) { characters[personId].status = "alert"; renderCharacters(); addMessage("assistant", "Verity", "The simulated host could not complete that request."); trace.textContent = String(error); traceStatus.textContent = "Error"; status.textContent = "Error"; }
   finally { stopProgress(); prompt.focus(); }
 }
@@ -176,6 +187,52 @@ document.querySelectorAll(".mode").forEach((button) => button.addEventListener("
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 if (!SpeechRecognition) mic.disabled = true;
 else { const recognition = new SpeechRecognition(); recognition.lang = "en-IN"; recognition.interimResults = true; recognition.onresult = (event) => { const text = Array.from(event.results).map((result) => result[0].transcript).join(""); prompt.value = text; if (event.results[event.results.length - 1].isFinal) { enqueueAsk(text); prompt.value = ""; } }; mic.addEventListener("click", () => recognition.start()); }
+
+// Who is home: one chip per member. Away members cannot be chosen as the speaker.
+function renderHousehold(members) {
+  householdMembers = members;
+  const chips = document.querySelector("#household");
+  chips.replaceChildren(...members.map((m) => {
+    const chip = el("button", `chip ${m.presence}`, `${m.display_name}`);
+    chip.type = "button";
+    chip.title = m.presence === "away" ? `Away until ${m.return_at}` : "Home";
+    chip.addEventListener("click", () => { renderHouseholdList(); showOverlay("household-modal"); });
+    return chip;
+  }));
+  if (!document.querySelector("#household-modal").hidden) renderHouseholdList();
+  // Away members cannot be chosen as the speaker.
+  [...speaker.options].forEach((option) => { option.disabled = presenceAway.has(option.value); });
+}
+function renderHouseholdList() {
+  const list = document.querySelector("#household-list");
+  list.replaceChildren(...householdMembers.map((m) => {
+    const row = el("div", `household-row ${m.presence}`);
+    const text = el("div", "household-text");
+    text.append(el("b", null, m.display_name), el("span", null, m.presence === "away" ? `Away · back at ${m.return_at || "unknown time"}` : "Home"));
+    row.append(text);
+    const actions = el("div", "household-actions");
+    if (m.presence === "away") {
+      const back = el("button", "secondary", "Back now");
+      back.type = "button";
+      back.addEventListener("click", async () => {
+        await fetch("/api/presence", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ person_id: m.person_id, presence: "home" }) });
+        refreshState();
+      });
+      actions.append(back);
+    } else {
+      const pick = el("button", "secondary", "Speak as");
+      pick.type = "button";
+      pick.addEventListener("click", () => { speaker.value = m.person_id; hideOverlay("household-modal"); });
+      actions.append(pick);
+    }
+    row.append(actions);
+    return row;
+  }));
+}
+
+document.querySelector("#close-rides").addEventListener("click", () => hideOverlay("ride-overlay"));
+document.querySelector("#ride-open").addEventListener("click", () => showOverlay("ride-overlay"));
+document.querySelector("#close-household").addEventListener("click", () => hideOverlay("household-modal"));
 
 // Live status line: polls what Verity is doing right now, in plain words.
 let progressTimer = null;
@@ -278,11 +335,18 @@ function rideCard(hedge) {
   card.append(el("div", "ride-foot", `Cancellation fees so far: ₹${hedge.fees_inr} (simulated)`));
   return card;
 }
+function showOverlay(id) { document.getElementById(id).hidden = false; }
+function hideOverlay(id) { document.getElementById(id).hidden = true; }
 function renderRides(hedges) {
   const box = document.querySelector("#rides");
-  document.querySelector("#ride-count").textContent = hedges.length ? `${hedges.length} request${hedges.length === 1 ? "" : "s"}` : "None yet";
-  if (!hedges.length) { box.replaceChildren(el("p", "empty-hint", "No ride requests yet. Try “Get me a ride to the office.”")); return; }
-  box.replaceChildren(...hedges.map(rideCard));
+  document.querySelector("#ride-count").textContent = hedges.length ? `${hedges.length} request${hedges.length === 1 ? "" : "s"}` : "";
+  document.querySelector("#ride-open").hidden = hedges.length === 0;
+  box.replaceChildren(...(hedges.length ? hedges.map(rideCard) : [el("p", "empty-hint", "No ride requests yet.")]));
+  // A new ride request opens the large popup on top of the house. Requests already seen on page load do not.
+  const fresh = hedges.filter((h) => !seenHedges.has(h.hedge_id));
+  hedges.forEach((h) => seenHedges.add(h.hedge_id));
+  if (ridesLoaded && fresh.length) showOverlay("ride-overlay");
+  ridesLoaded = true;
 }
 async function refreshRides() {
   try {

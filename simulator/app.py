@@ -69,8 +69,20 @@ async def cancel_ride(request: Request) -> JSONResponse:
     return JSONResponse(await host.cancel_ride(person_id, hedge_id))
 
 
+async def presence(request: Request) -> JSONResponse:
+    """Mark a household member home or away. Away needs HH:MM as the return time."""
+    payload = await request.json()
+    person_id = str(payload.get("person_id", "")).strip()
+    value = str(payload.get("presence", "")).strip()
+    return_at = payload.get("return_at")
+    if not person_id or value not in {"home", "away"}:
+        return JSONResponse({"error": "person_id and presence (home or away) are required"}, status_code=400)
+    return JSONResponse(await host.set_presence(person_id, value, str(return_at) if return_at else None))
+
+
 routes = [
     Route("/api/rides/cancel", cancel_ride, methods=["POST"]),
+    Route("/api/presence", presence, methods=["POST"]),
     Route("/api/chat", chat, methods=["POST"]),
     Route("/api/progress", progress, methods=["GET"]),
     Route("/api/rides", rides, methods=["GET"]),
