@@ -177,16 +177,26 @@ async function processNextTurn() {
   }
 }
 
+// A reply that ends in a question shows that question in the question popup, not in the reply line.
+function splitQuestion(text) {
+  const sentences = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [text];
+  const last = sentences[sentences.length - 1].trim();
+  if (!last.endsWith("?")) return { statement: text, question: null };
+  return { statement: sentences.slice(0, -1).join(" ").trim(), question: last };
+}
+
 async function ask(rawText, personId = speaker.value) {
   const text = rawText.replace(/^alexa[, ]*/i, "").trim(); if (!text) return;
   hideOverlay("question-overlay"); addMessage("user", PEOPLE[personId].label, text, personId); startProgress(); characters[personId].status = "busy"; renderCharacters(); status.textContent = "Agent is choosing tools…";
   try {
     const response = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ session_id: sessionId, person_id: personId, text }) });
     const result = await response.json(); if (!response.ok) throw new Error(result.error || "Request failed");
-    renderQuestion(result.question || null);
     const failed = result.trace.some((event) => event.kind === "tool" && event.result.output && event.result.output.success === false);
     const spokenResponse = plainSpeech(result.speech);
-    characters[personId].status = failed ? "alert" : "idle"; renderCharacters(); addMessage("assistant", "Verity", spokenResponse); document.querySelector("#reply").textContent = spokenResponse; trace.textContent = JSON.stringify(result.trace, null, 2); renderSteps(result.trace); traceStatus.textContent = `${result.trace.length} event${result.trace.length === 1 ? "" : "s"}`; speak(spokenResponse); await refreshState();
+    const { statement, question } = splitQuestion(spokenResponse);
+    renderQuestion(result.question || (question ? { text: question, options: ["Yes", "No"] } : null));
+    const replyText = result.question || !question ? spokenResponse : statement;
+    characters[personId].status = failed ? "alert" : "idle"; renderCharacters(); addMessage("assistant", "Verity", spokenResponse); document.querySelector("#reply").textContent = replyText; trace.textContent = JSON.stringify(result.trace, null, 2); renderSteps(result.trace); traceStatus.textContent = `${result.trace.length} event${result.trace.length === 1 ? "" : "s"}`; speak(spokenResponse); await refreshState();
   } catch (error) { characters[personId].status = "alert"; renderCharacters(); addMessage("assistant", "Verity", "The simulated host could not complete that request."); trace.textContent = String(error); traceStatus.textContent = "Error"; status.textContent = "Error"; }
   finally { stopProgress(); prompt.focus(); }
 }
