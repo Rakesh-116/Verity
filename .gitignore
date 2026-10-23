@@ -7,3 +7,10 @@ server/state/ride_hedges.json
 
 # Local database of people and preferences (created from memory.json on first use)
 server/state/household.db
+
+# Runtime logs written while the app runs (created on first use)
+server/state/audit_log.jsonl
+server/state/escalations.json
+
+# Editor settings
+.vscode/

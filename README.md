@@ -215,10 +215,27 @@ The HTTP check needs the server running:
 - The model has a limit on tool rounds per request; when it is reached, the
   reply lists what was already done.
 
+## Local state
+
+The JSON files in `server/state/` are the starting household, so the app runs
+straight after cloning. As you use the app, it changes them on your machine, and
+those changes are not meant for git. Keep them out of commits with
+`git update-index --skip-worktree` on the files you use, or commit only the
+code and docs by naming the paths you change.
+
+Files the app creates on first use, and which git ignores:
+
+- `server/state/household.db`: people and preferences, imported from `memory.json`
+- `server/state/audit_log.jsonl`: the tamper-evident action log
+- `server/state/escalations.json`: cases raised for the household admin
+- `server/state/ride_hedges.json`: ride-hedge records
+
+The tests never write to these files. They run on a copy of `tests/seed_state`.
+
 ## Repository layout
 
 ```text
-server/      MCP server, tools, services, state (household.db is ignored by git)
+server/      MCP server, tools, services, state (see Local state below)
 simulator/   browser page, agent host, scripted demo, narration
 skills/      Agent Skill instructions
 tests/       phase tests, HTTP check, and tests/seed_state
