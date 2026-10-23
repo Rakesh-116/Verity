@@ -287,7 +287,17 @@ class AgentHost:
                     result["speech"] = " ".join(sentences[:-1] + [f"I've prepared the {name} ride for your approval. Accept or decline it in the popup."]).strip()
         checked = check_claims(result.get("speech", ""), trace)
         if checked["overridden"]:
-            result["speech"] = checked["speech"]
+            # A booking claim with no booking, but with a ride waiting for the person's Accept, is not a refusal:
+            # say what was prepared and where to decide. The generic "tell me if you want me to go ahead" is not used.
+            prepared = next((e for e in trace if e.get("kind") == "tool" and e["name"] == "create_ride_booking_proposal" and e.get("ok")), None)
+            booked = any(e.get("kind") == "tool" and e["name"] == "book_ride" and e.get("ok") for e in trace)
+            if prepared and not booked:
+                quote = (prepared["result"].get("output") or {}).get("quote") or {}
+                provider = PROVIDER_NAMES.get(quote.get("provider") or prepared["arguments"].get("provider", ""), "the chosen")
+                who = household_roster().get(prepared["arguments"].get("person_id", ""), {}).get("display_name", "")
+                result["speech"] = f"I've prepared the {provider} ride{' for ' + who if who else ''} for your approval. Accept or decline it in the popup."
+            else:
+                result["speech"] = checked["speech"]
             result["claim_check"] = {"overridden": True, "claim": checked["claim"]}
             reasons.append(f"unconfirmed claim: {checked['claim']}")
         if any(event.get("kind") == "no_tool_call" for event in trace):
